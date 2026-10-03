@@ -27,5 +27,19 @@ pangenome_shards: 8
 ml_mem_mb: 256000
 mock: False
 
+# ML feature-set experiments (target: ml_feature_sets). Each set merges only the
+# enabled feature tables and writes its merged tables and models under
+# <output_dir>/experiments/<name>/. The full set is the baseline in feature_table/ and ml/.
+feature_sets:
+  snp:           {use_snp: True,  use_gpa: False, use_pangenome: False}
+  gpa:           {use_snp: False, use_gpa: True,  use_pangenome: False}
+  pangenome:     {use_snp: False, use_gpa: False, use_pangenome: True}
+  snp_gpa:       {use_snp: True,  use_gpa: True,  use_pangenome: False}
+  snp_pangenome: {use_snp: True,  use_gpa: False, use_pangenome: True}
+  gpa_pangenome: {use_snp: False, use_gpa: True,  use_pangenome: True}
+# XGBoost search grid for the experiments: small has 36 combinations
+# (combined_ml.py); medium and large are much bigger.
+ml_param_grid_size: small
+
 datasail_delta: 0.2
 datasail_epsilon: 0.2

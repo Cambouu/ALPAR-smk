@@ -184,6 +184,8 @@ set-resources:
     container_image: docker.io/cambouu/alpar-smk-python313:1.0.0
   pivot_merged_features_miller:
     container_image: docker.io/cambouu/alpar-smk-miller:1.0.0
+  pivot_feature_set:
+    container_image: docker.io/cambouu/alpar-smk-miller:1.0.0
   prps_runner:
     container_image: docker.io/cambouu/alpar-smk-prps:1.0.0
   pyseer_genotype_matrix_creator:
@@ -223,6 +225,8 @@ set-resources:
   combined_ml:
     # mem_mb and htcondor_request_mem_mb are computed dynamically in ml.smk;
     # setting either here would override that rule-level calculation.
+    container_image: docker.io/cambouu/alpar-smk-ml:1.0.0
+  combined_ml_feature_set:
     container_image: docker.io/cambouu/alpar-smk-ml:1.0.0
 
 set-threads:

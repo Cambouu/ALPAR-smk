@@ -61,6 +61,42 @@ rule combined_ml:
     script:
         SCRIPTS_DIR / "combined_ml.py"
 
+# One model per feature set; same naming as the baseline, under experiments/<feature_set>/ml/.
+EXPERIMENT_ML_STEM = str(EXPERIMENT_DIR / "ml" / "{antibiotic}" / "seed_{random_seed}_testsize_{test_size}_resampling_{resampling_strategy}_{model_type}_FIA_{feature_importance_analysis_strategy}")
+
+use rule combined_ml as combined_ml_feature_set with:
+    input:
+        binary_mutation_table = rules.pivot_feature_set.output[0],
+        phenotype_table = rules.phenotype_dataframe_creator.output[0],
+        train = lambda wildcards: expand(rules.split_train_test.output, split_category=["train"], antibiotic=wildcards.antibiotic)[0],
+        test = lambda wildcards: expand(rules.split_train_test.output, split_category=["test"], antibiotic=wildcards.antibiotic)[0],
+    output:
+        best_params = EXPERIMENT_ML_STEM + "_best_params.txt",
+        model_file  = EXPERIMENT_ML_STEM + "_model.sav",
+        result      = EXPERIMENT_ML_STEM + "_Result.txt",
+        fia         = EXPERIMENT_ML_STEM + ".txt",
+    benchmark: BENCHMARKS_DIR / "combined_ml_{feature_set}_{antibiotic}_seed_{random_seed}_testsize_{test_size}_resampling_{resampling_strategy}_{model_type}_FIA_{feature_importance_analysis_strategy}.tsv"
+    log: EXPERIMENT_ML_STEM + ".log"
+    params:
+        feature_importance_analysis = True,
+        save_model = True,
+        param_grid_size = lookup(dpath="ml_param_grid_size", within=config, default="small"),
+
+rule ml_feature_sets:
+    localrule: True
+    input:
+        expand(
+            rules.combined_ml_feature_set.output,
+            feature_set=FEATURE_SETS,
+            antibiotic=ANTIBIOTICS,
+            random_seed=[42],
+            test_size=[0.2],
+            resampling_strategy=["cv"],
+            model_type=["xgb"],
+            feature_importance_analysis_strategy=["gini"]
+        )
+    output: touch(OUT_DIR / "flags" / "ml_feature_sets.done")
+
 rule ml:
     localrule: True
     input:

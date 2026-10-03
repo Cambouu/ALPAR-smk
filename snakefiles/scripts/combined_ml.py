@@ -1045,6 +1045,7 @@ if __name__ == "__main__":
         # Parameters
         feature_importance_analysis=snakemake.params['feature_importance_analysis'],
         save_model=snakemake.params['save_model'],
+        param_grid_size=snakemake.params.get('param_grid_size', 'small'),
     )
     logger.remove()
     logger.add(handler.log_file, backtrace=True, diagnose=True, enqueue=True)
