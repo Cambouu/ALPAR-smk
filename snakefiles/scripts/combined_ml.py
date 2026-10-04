@@ -220,8 +220,11 @@ def main(handler: SnakemakeHandler):
     # iteration treat that as a row break. float() ignores the '\r'.
     with open(binary_mutation_table, 'rb') as file:
         next(file)
-        table_strains = {line.split(b'\t', 1)[0].decode() for line in file}
-    n_strains = len(table_strains)
+        table_strain_list = [line.split(b'\t', 1)[0].decode() for line in file]
+    n_strains = len(table_strain_list)
+    table_strains = set(table_strain_list)
+    if len(table_strains) != n_strains:
+        raise ValueError(f"{binary_mutation_table} has {n_strains - len(table_strains)} duplicate strain rows")
     # A strain without any feature in this table is absent from the long tables
     # that were merged. In the full merged table it still has a row from another
     # feature family, with empty cells read as 0. Give such train/test strains an
