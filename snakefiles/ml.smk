@@ -86,6 +86,12 @@ use rule combined_ml as combined_ml_feature_set with:
         # force the same search for every set.
         param_grid_low_memory_mode = True,
         parallel_fits = lookup(dpath="ml_parallel_fits", within=config, default=1),
+    resources:
+        mem_mb = int(config.get("ml_mem_mb", 4000)) // len(ANTIBIOTICS),
+        # Parallel fits each hold their own XGBoost matrices: four fits on the
+        # snp feature sets went over 128 GB (2026-10-04). HTCondor gets the full
+        # ML budget per job; mem_mb keeps the controller's pool accounting unchanged.
+        htcondor_request_mem_mb = int(config.get("ml_mem_mb", 4000)),
 
 rule ml_feature_sets:
     localrule: True
