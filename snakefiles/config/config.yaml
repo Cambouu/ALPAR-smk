@@ -40,6 +40,9 @@ feature_sets:
 # XGBoost search grid for the experiments: small has 36 combinations
 # (combined_ml.py); medium and large are much bigger.
 ml_param_grid_size: small
+# Grid points trained at once in each feature-set job (threads split evenly).
+# One fit used only 2-4 of 16 cores.
+ml_parallel_fits: 4
 
 datasail_delta: 0.2
 datasail_epsilon: 0.2

@@ -81,6 +81,11 @@ use rule combined_ml as combined_ml_feature_set with:
         feature_importance_analysis = True,
         save_model = True,
         param_grid_size = lookup(dpath="ml_param_grid_size", within=config, default="small"),
+        # The baseline's table size always selects the low-memory search (on the
+        # test split). Small feature sets would fall back to GridSearchCV, so
+        # force the same search for every set.
+        param_grid_low_memory_mode = True,
+        parallel_fits = lookup(dpath="ml_parallel_fits", within=config, default=1),
 
 rule ml_feature_sets:
     localrule: True

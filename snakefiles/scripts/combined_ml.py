@@ -1,7 +1,9 @@
 import csv
+import itertools
 import os
 import pickle
 import secrets
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import suppress
 from typing import Annotated, Literal, cast
 
@@ -70,6 +72,7 @@ class SnakemakeHandler(BaseModel):
     device: Literal["cpu", "gpu", "cuda"] = "cpu"
     parameter_search_strategy: Literal["grid_search", "random_search"] = "grid_search"
     parameter_search_n_iter: PositiveInt = 20
+    parallel_fits: PositiveInt = 1
 
     @computed_field
     @property
@@ -216,11 +219,18 @@ def main(handler: SnakemakeHandler):
     # CRLF line endings, leaving '\r' inside cells; csv.reader and text-mode line
     # iteration treat that as a row break. float() ignores the '\r'.
     with open(binary_mutation_table, 'rb') as file:
-        n_strains = sum(1 for _ in file) - 1
+        next(file)
+        table_strains = {line.split(b'\t', 1)[0].decode() for line in file}
+    n_strains = len(table_strains)
+    # A strain without any feature in this table is absent from the long tables
+    # that were merged. In the full merged table it still has a row from another
+    # feature family, with empty cells read as 0. Give such train/test strains an
+    # all-zero row here too, so every feature set uses the same strains.
+    missing_strains = [strain for strain in dict.fromkeys([*train, *test, *validation]) if strain not in table_strains]
     with open(binary_mutation_table, 'r', newline='\n') as file:
         headers = next(file).rstrip('\r\n').split('\t')
         feature_names = headers[1:]
-        genotype_matrix = np.zeros((n_strains, len(feature_names)), dtype=np.float32)
+        genotype_matrix = np.zeros((n_strains + len(missing_strains), len(feature_names)), dtype=np.float32)
         genotype_data = {}
         for row_index, line in enumerate(file):
             rows = line.rstrip('\n').split('\t')
@@ -228,8 +238,11 @@ def main(handler: SnakemakeHandler):
             genotype_matrix[row_index] = np.fromiter(
                 map(_float_with_default, rows[1:]), dtype=np.float32, count=len(feature_names)
             )
+    for row_index, strain in enumerate(missing_strains, start=n_strains):
+        genotype_data[strain] = row_index
     logger.info(
-        f"Loaded genotype table with {len(genotype_data)} strains and {len(feature_names)} features"
+        f"Loaded genotype table with {n_strains} strains and {len(feature_names)} features; "
+        f"added {len(missing_strains)} split strains without features as all-zero rows"
     )
 
     # Load phenotype data
@@ -584,46 +597,54 @@ def main(handler: SnakemakeHandler):
         else:
             if param_grid_low_memory_mode:
                 logger.info("XGB low-memory exhaustive search enabled")
-                total_number_of_parameter_combinations = 1
-                for value in param_grid.values():
-                    total_number_of_parameter_combinations *= len(value)
+                # Same order as nested loops over the grid; ties keep the earliest combination.
+                combinations = list(itertools.product(
+                    param_grid['max_depth'], param_grid['min_child_weight'], param_grid['subsample'],
+                    param_grid['colsample_bytree'], param_grid['eta'], param_grid['n_estimators'],
+                ))
+                total_number_of_parameter_combinations = len(combinations)
                 logger.info(f"XGBoost: Total number of parameter combinations to be evaluated: {total_number_of_parameter_combinations}")
-                current_number_of_processed_combinations = 0
-                sorted_importances = {}
-                for temp_max_depth in param_grid['max_depth']:
-                    for temp_min_child_weight in param_grid['min_child_weight']:
-                        for temp_subsample in param_grid['subsample']:
-                            for temp_colsample_bytree in param_grid['colsample_bytree']:
-                                for temp_eta in param_grid['eta']:
-                                    for temp_n_estimators in param_grid['n_estimators']:
-                                        logger.debug(f"Training model {current_number_of_processed_combinations + 1} / {total_number_of_parameter_combinations}")
-                                        # Initialize the XGBoost classifier with each parameter
-                                        xgb_model = xgb.XGBClassifier(
-                                            objective='binary:logistic',
-                                            eval_metric='logloss',
-                                            seed=random_seed,
-                                            device=device,
-                                            n_jobs=n_jobs,
-                                            max_depth=temp_max_depth,
-                                            min_child_weight=temp_min_child_weight,
-                                            subsample=temp_subsample,
-                                            colsample_bytree=temp_colsample_bytree,
-                                            learning_rate=temp_eta,
-                                            n_estimators=temp_n_estimators
-                                        )
-                                        xgb_model.fit(X_train, y_train)
-                                        y_hat = xgb_model.predict(X_test)
-                                        current_score = scoring_function(y_test, y_hat)
+                # A single fit keeps only a few of the job's cores busy, so several
+                # fits run at once on threads that share X_train. XGBoost releases
+                # the GIL while training.
+                parallel_fits = max(1, min(handler.parallel_fits, n_jobs, total_number_of_parameter_combinations))
+                fit_threads = max(1, n_jobs // parallel_fits)
+                logger.info(f"XGBoost: {parallel_fits} parallel fits with {fit_threads} threads each")
 
-                                        if current_score > best_result:
-                                            best_result = current_score
-                                            bst = xgb_model
-                                            logger.info(f"XGB new best {custom_scorer}={best_result}")
-                                            with open(output_file, "w") as param_file:
-                                                param_file.write(f"Best {custom_scorer} result for {antibiotic}: {best_result}\n")
-                                                param_file.write(f"Parameters: max_depth={temp_max_depth}, min_child_weight={temp_min_child_weight}, subsample={temp_subsample}, colsample_bytree={temp_colsample_bytree}, eta={temp_eta}, n_estimators={temp_n_estimators}\n")
-                                            best_y_hat = y_hat
-                                        current_number_of_processed_combinations += 1
+                def fit_combination(combination):
+                    temp_max_depth, temp_min_child_weight, temp_subsample, temp_colsample_bytree, temp_eta, temp_n_estimators = combination
+                    xgb_model = xgb.XGBClassifier(
+                        objective='binary:logistic',
+                        eval_metric='logloss',
+                        seed=random_seed,
+                        device=device,
+                        n_jobs=fit_threads,
+                        max_depth=temp_max_depth,
+                        min_child_weight=temp_min_child_weight,
+                        subsample=temp_subsample,
+                        colsample_bytree=temp_colsample_bytree,
+                        learning_rate=temp_eta,
+                        n_estimators=temp_n_estimators
+                    )
+                    xgb_model.fit(X_train, y_train)
+                    return xgb_model, xgb_model.predict(X_test)
+
+                with ThreadPoolExecutor(parallel_fits) as pool:
+                    # map yields results in grid order, so selection matches the sequential loop.
+                    results = pool.map(fit_combination, combinations)
+                    for current_number_of_processed_combinations, (combination, (xgb_model, y_hat)) in enumerate(zip(combinations, results)):
+                        temp_max_depth, temp_min_child_weight, temp_subsample, temp_colsample_bytree, temp_eta, temp_n_estimators = combination
+                        logger.debug(f"Trained model {current_number_of_processed_combinations + 1} / {total_number_of_parameter_combinations}")
+                        current_score = scoring_function(y_test, y_hat)
+
+                        if current_score > best_result:
+                            best_result = current_score
+                            bst = xgb_model
+                            logger.info(f"XGB new best {custom_scorer}={best_result}")
+                            with open(output_file, "w") as param_file:
+                                param_file.write(f"Best {custom_scorer} result for {antibiotic}: {best_result}\n")
+                                param_file.write(f"Parameters: max_depth={temp_max_depth}, min_child_weight={temp_min_child_weight}, subsample={temp_subsample}, colsample_bytree={temp_colsample_bytree}, eta={temp_eta}, n_estimators={temp_n_estimators}\n")
+                            best_y_hat = y_hat
 
             else:
                 logger.info("XGB GridSearchCV + final training branch enabled")
@@ -1046,6 +1067,8 @@ if __name__ == "__main__":
         feature_importance_analysis=snakemake.params['feature_importance_analysis'],
         save_model=snakemake.params['save_model'],
         param_grid_size=snakemake.params.get('param_grid_size', 'small'),
+        param_grid_low_memory_mode=snakemake.params.get('param_grid_low_memory_mode', False),
+        parallel_fits=snakemake.params.get('parallel_fits', 1),
     )
     logger.remove()
     logger.add(handler.log_file, backtrace=True, diagnose=True, enqueue=True)
