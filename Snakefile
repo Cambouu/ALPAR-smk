@@ -81,6 +81,10 @@ include: SNAKEFILES_DIR / "prps.smk"
 include: SNAKEFILES_DIR / "gwas.smk"
 include: SNAKEFILES_DIR / "ml.smk"
 
+# Experiment: nucleotide pangenome instead of the panproteome (target
+# experiment_pangenome_nt). Not part of automatix.
+include: SNAKEFILES_DIR / "pangenome_nt.smk"
+
 
 rule automatix:
     input:

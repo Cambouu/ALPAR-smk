@@ -54,7 +54,18 @@ EXPECTED_ENVIRONMENTS = {
     "pyseer_gwas_graph_creator": "gwas",
     "decision_tree_input_creator": "gwas",
     "prps_ml_preprocessor": "python313",
-    "combined_ml": "ml"
+    "combined_ml": "ml",
+    # Nucleotide pangenome experiment (pangenome_nt.smk).
+    "split_cluster_fasta_nt": "python313",
+    "cluster_fasta_splits_nt": "python313",
+    "align_clusters_nt": "mafft",
+    "panpa_build_gfa_nt": "panpa-vcf",
+    "bubblegun_runner_nt": "bubblegun",
+    "bubble_features_nt": "python313",
+    "panpa_align_nt": "panpa-vcf",
+    "gaf_lor_features_nt": "python313",
+    "pivot_features_nt": "miller",
+    "combined_ml_nt": "ml",
 }
 
 
@@ -71,6 +82,8 @@ def image_tag(key):
 PANGENOME_SHARD_RULES = {
     "align_clusters", "panpa_build_gfa", "bubblegun_runner",
     "bubble_features", "panpa_align", "gaf_lor_features",
+    "align_clusters_nt", "panpa_build_gfa_nt", "bubblegun_runner_nt",
+    "bubble_features_nt", "panpa_align_nt", "gaf_lor_features_nt",
 }
 
 
@@ -101,7 +114,7 @@ class WorkflowContainersTest(unittest.TestCase):
             rules = {rule.name: rule for rule in workflow.rules}
             env_rules = {name for name, rule in rules.items() if rule.conda_env}
             self.assertEqual(env_rules, set(EXPECTED_ENVIRONMENTS))
-            self.assertEqual(len(env_rules), 40)
+            self.assertEqual(len(env_rules), 50)
             for name, key in EXPECTED_ENVIRONMENTS.items():
                 with self.subTest(rule=name):
                     self.assertEqual(
@@ -135,7 +148,7 @@ class WorkflowContainersTest(unittest.TestCase):
 
     def test_general_purpose_container_is_inherited(self):
         with self.workflow() as workflow:
-            self.assertEqual(len(workflow.rules), 66)
+            self.assertEqual(len(workflow.rules), 83)
             for rule in workflow.rules:
                 if not rule.conda_env:
                     self.assertEqual(
@@ -255,10 +268,11 @@ class WorkflowContainersTest(unittest.TestCase):
             )
             # combined_ml runs one antibiotic per job so each gets its own memory.
             self.assertEqual(profile["group-components"]["combined_ml_batch"], 1)
+            self.assertEqual(profile["group-components"]["combined_ml_nt_batch"], 1)
             self.assertTrue(all(
                 components == 2000
                 for group, components in profile["group-components"].items()
-                if group != "combined_ml_batch"
+                if group not in {"combined_ml_batch", "combined_ml_nt_batch"}
             ))
             for rule in workflow.rules:
                 if rule.name not in wildcard_rules:

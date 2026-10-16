@@ -65,6 +65,8 @@ rule prokka_runner:
         gff = GENOME_ANNOTATION_OUT_DIR / "prokka" / "{sample}" / "{sample}.gff",
         faa = GENOME_ANNOTATION_OUT_DIR / "prokka" / "{sample}" / "{sample}.faa",
         gbk = GENOME_ANNOTATION_OUT_DIR / "prokka" / "{sample}" / "{sample}.gbk",
+        # Nucleotide sequences of the predicted genes; Prokka always wrote this file.
+        ffn = GENOME_ANNOTATION_OUT_DIR / "prokka" / "{sample}" / "{sample}.ffn",
     log: GENOME_ANNOTATION_LOGS_DIR / "prokka_runner" / "{sample}.log"
     benchmark: BENCHMARKS_DIR / "prokka_{sample}.tsv"
     params:

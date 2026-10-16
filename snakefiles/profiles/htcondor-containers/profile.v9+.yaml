@@ -34,6 +34,10 @@ group-components:
   # One antibiotic per job: bundled, both shared one container and ciprofloxacin
   # was killed for memory on 2026-09-28.
   combined_ml_batch: 1
+  # Nucleotide pangenome experiment (pangenome_nt.smk).
+  cluster_fasta_splits_nt_batch: 2000
+  pivot_features_nt_batch: 2000
+  combined_ml_nt_batch: 1
 
 # Global pool: total memory of all concurrently running jobs (20 jobs x 32 GB).
 # Group jobs stay near 32 GB because cores: 32 limits how many members run at once.
@@ -223,6 +227,53 @@ set-resources:
   combined_ml:
     # mem_mb and htcondor_request_mem_mb are computed dynamically in ml.smk;
     # setting either here would override that rule-level calculation.
+    container_image: docker.io/cambouu/alpar-smk-ml:1.0.0
+  # Nucleotide pangenome experiment (pangenome_nt.smk). Coding sequences are
+  # about 3x longer than proteins; sizes scale the protein runs' benchmarks
+  # (2026-09-28 peaks in parentheses).
+  split_cluster_fasta_nt:
+    # Protein run: 18.6 GB for a 3.6 GB FASTA; the gene FASTA is about 9 GB.
+    mem_mb: 96000
+    htcondor_request_mem_mb: 91553
+    container_image: docker.io/cambouu/alpar-smk-python313:1.0.0
+  cluster_fasta_splits_nt:
+    mem_mb: 8000
+    htcondor_request_mem_mb: 7630
+    container_image: docker.io/cambouu/alpar-smk-python313:1.0.0
+  align_clusters_nt:
+    # Protein shards: 1.6 GB.
+    mem_mb: 32000
+    htcondor_request_mem_mb: 30517
+    container_image: docker.io/cambouu/alpar-smk-mafft:1.0.0
+  panpa_build_gfa_nt:
+    # Protein shards: 1.5 GB.
+    mem_mb: 32000
+    htcondor_request_mem_mb: 30517
+    container_image: docker.io/cambouu/alpar-smk-panpa-vcf:1.0.0
+  bubblegun_runner_nt:
+    # Protein shards: 0.6 GB.
+    mem_mb: 16000
+    htcondor_request_mem_mb: 15258
+    container_image: docker.io/cambouu/alpar-smk-bubblegun:1.0.0
+  bubble_features_nt:
+    # Protein shards: 3.9 GB.
+    mem_mb: 32000
+    htcondor_request_mem_mb: 30517
+    container_image: docker.io/cambouu/alpar-smk-python313:1.0.0
+  panpa_align_nt:
+    # Protein shards: 2.2 GB; DP matrices grow with query and graph length.
+    mem_mb: 64000
+    htcondor_request_mem_mb: 61035
+    container_image: docker.io/cambouu/alpar-smk-panpa-vcf:1.0.0
+  gaf_lor_features_nt:
+    # Protein shards: 1.4 GB.
+    mem_mb: 32000
+    htcondor_request_mem_mb: 30517
+    container_image: docker.io/cambouu/alpar-smk-python313:1.0.0
+  pivot_features_nt:
+    container_image: docker.io/cambouu/alpar-smk-miller:1.0.0
+  combined_ml_nt:
+    # Inherits combined_ml's rule-level memory; see combined_ml above.
     container_image: docker.io/cambouu/alpar-smk-ml:1.0.0
 
 set-threads:

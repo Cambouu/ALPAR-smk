@@ -102,6 +102,19 @@ def split_cluster_fasta(handler: CdhitHandler) -> None:
         )
     )
 
+    # A clustered sequence absent from the FASTA would be dropped silently.
+    missing = (
+        df_join
+        .filter(pl.col('protein_seq').is_null())
+        .select('protein_name')
+        .collect()
+    )
+    if missing.height:
+        raise ValueError(
+            f"{missing.height} clustered sequences are missing from "
+            f"{handler.combined_proteins}, e.g. {missing['protein_name'][0]}"
+        )
+
     df_to_write = (
         df_join
         .with_columns(
