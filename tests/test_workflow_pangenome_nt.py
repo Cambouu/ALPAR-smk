@@ -97,6 +97,15 @@ class NucleotidePangenomeWorkflowTest(unittest.TestCase):
             self.assertNotIn("--dna", rule.shellcmd)
             self.assertNotIn("--sub_matrix", rules["panpa_align"].shellcmd)
 
+    def test_only_nucleotide_bubble_features_cap_paths_and_logging(self):
+        with self.workflow() as (_, rules):
+            nucleotide = rules["bubble_features_nt"].shellcmd
+            self.assertIn('--max-bubble-paths "$PATH_LIMIT" --log-level WARNING', nucleotide)
+            self.assertIn("PATH_LIMIT={BUBBLE_PATH_LIMIT}", nucleotide)
+            protein = rules["bubble_features"].shellcmd
+            self.assertNotIn("--max-bubble-paths", protein)
+            self.assertNotIn("--log-level", protein)
+
 
 if __name__ == "__main__":
     unittest.main()

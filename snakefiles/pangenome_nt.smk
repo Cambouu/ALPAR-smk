@@ -115,7 +115,14 @@ use rule bubblegun_runner as bubblegun_runner_nt with:
 # Bubble Features: Train
 # -----------------------
 
-use rule bubble_features as bubble_features_nt with:
+# Same as bubble_features, with two options the protein run did not need.
+# Nucleotide graphs have bubbles whose realized paths grow combinatorially:
+# Cluster_4184 exceeded 30 GB, and debug logs reached 5.6 GB per shard
+# (run 67228). Bubbles with more than BUBBLE_PATH_LIMIT paths are skipped,
+# and only warnings and errors are logged.
+BUBBLE_PATH_LIMIT = 5000
+
+rule bubble_features_nt:
     input:
         manifest = NT_SHARD_MANIFEST,
         gfa_dir = rules.panpa_build_gfa_nt.output[0],
@@ -128,6 +135,23 @@ use rule bubble_features as bubble_features_nt with:
         lor_lookup_dir = directory(PANGENOME_NT_OUT_DIR / "bubble_features_{antibiotic}_lor_lookup" / "{shard}"),
     log: PANGENOME_NT_LOGS_DIR / "bubble_features" / "{antibiotic}" / "{shard}.log"
     benchmark: BENCHMARKS_DIR / "bubble_features_nt_{antibiotic}_{shard}.tsv"
+    conda: ENVS_DIR.format("python313")
+    container: CONTAINERS.format("python313:1.0.0")
+    threads: workflow.cores
+    shell:
+        r"""
+        mkdir -p {output.output_dir:q} {output.lor_lookup_dir:q}
+        export SCRIPT={BUBBLE_FEATURES_SCRIPT:q} GFA={input.gfa_dir:q} BUBBLES={input.bubblegun_dir:q} \
+            PHENOTYPES={input.phenotype_table:q} ANTIBIOTIC={wildcards.antibiotic:q} \
+            OUT={output.output_dir:q} LOOKUP={output.lor_lookup_dir:q} PATH_LIMIT={BUBBLE_PATH_LIMIT}
+        bash {FOR_EACH_CLUSTER:q} {input.manifest:q} {threads} {log:q} '
+            python "$SCRIPT" \
+                --gfa-file "$GFA/$1.gfa" --bubble-gun "$BUBBLES/$1.json" \
+                --phenotype-table "$PHENOTYPES" --antibiotic "$ANTIBIOTIC" --log-file "$2" \
+                --output-file "$OUT/$1.tsv" --lor-lookup-file "$LOOKUP/$1.tsv" \
+                --max-bubble-paths "$PATH_LIMIT" --log-level WARNING
+            test -f "$OUT/$1.tsv" && test -f "$LOOKUP/$1.tsv"'
+        """
 
 
 use rule merge_bubble_features as merge_bubble_features_nt with:

@@ -256,9 +256,10 @@ set-resources:
     htcondor_request_mem_mb: 15258
     container_image: docker.io/cambouu/alpar-smk-bubblegun:1.0.0
   bubble_features_nt:
-    # Protein shards: 3.9 GB.
-    mem_mb: 32000
-    htcondor_request_mem_mb: 30517
+    # Protein shards: 3.9 GB. Nucleotide shards: up to 9.5 GB, but one cluster
+    # went over 30 GB before bubbles were capped at BUBBLE_PATH_LIMIT paths.
+    mem_mb: 64000
+    htcondor_request_mem_mb: 61035
     container_image: docker.io/cambouu/alpar-smk-python313:1.0.0
   panpa_align_nt:
     # Protein shards: 2.2 GB; DP matrices grow with query and graph length.
