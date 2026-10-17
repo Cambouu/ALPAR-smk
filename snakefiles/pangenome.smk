@@ -214,7 +214,7 @@ rule bubble_features:
         export SCRIPT={BUBBLE_FEATURES_SCRIPT:q} GFA={input.gfa_dir:q} BUBBLES={input.bubblegun_dir:q} \
             PHENOTYPES={input.phenotype_table:q} ANTIBIOTIC={wildcards.antibiotic:q} \
             OUT={output.output_dir:q} LOOKUP={output.lor_lookup_dir:q}
-        # main() logs and swallows exceptions, so a missing output marks a failed cluster.
+        # main() re-raises, so an exception fails the cluster; the file checks are a backstop.
         bash {FOR_EACH_CLUSTER:q} {input.manifest:q} {threads} {log:q} '
             python "$SCRIPT" \
                 --gfa-file "$GFA/$1.gfa" --bubble-gun "$BUBBLES/$1.json" \

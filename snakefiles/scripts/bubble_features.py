@@ -43,6 +43,11 @@ class SnakemakeHandler(BaseModel):
         description='Path to where the log-odds ratio lookup file will be saved.'
     )
     antibiotic: str
+    max_bubble_paths: int = Field(
+        default=0,
+        description='Skip bubbles with more realized paths than this; 0 means no limit.'
+    )
+    log_level: str = 'DEBUG'
 
 
 # PanPA Graph
@@ -449,15 +454,27 @@ def write_bubble_lor(
         dag: rx.PyDiGraph[GFASegment, GFALink],
         cluster_name: str,
         io_out_file: TextIO,
-        io_lor_file: TextIO
+        io_lor_file: TextIO,
+        max_paths: int = 0,
 ) -> None:
     if bubble.nested_chains:
         for nested_chain in bubble.nested_chains:
-            write_chain_lor(nested_chain, parent_cohort, dag, cluster_name, io_out_file, io_lor_file)
+            write_chain_lor(nested_chain, parent_cohort, dag, cluster_name, io_out_file, io_lor_file, max_paths)
         return
 
     path_lor = list[tuple[str, frozenset[str], float]]()
     for path, path_cohort in realized_paths(dag, bubble.dag_ends[0], bubble.dag_ends[1], parent_cohort):
+        # Strains with several gene copies can combine nodes from different
+        # copies, so the realized paths of a large bubble can grow
+        # combinatorially (nucleotide Cluster_4184 exceeded 30 GB).
+        if max_paths and len(path_lor) == max_paths:
+            logger.warning(
+                'Skipping bubble {} in cluster {}: more than {} realized paths',
+                bubble.id,
+                cluster_name,
+                max_paths,
+            )
+            return
         susceptible_mult = 1
         resistance_mult = 1
 
@@ -513,6 +530,7 @@ def write_chain_lor(
         cluster_name: str,
         io_out_file: TextIO,
         io_lor_file: TextIO,
+        max_paths: int = 0,
 ) -> None:
     logger.debug(
         'Chain {} input cohort: susceptible={}, resistant={}',
@@ -523,12 +541,13 @@ def write_chain_lor(
 
     start_strains = dag.get_node_data(chain.dag_ends[0]).strains
     end_strains = dag.get_node_data(chain.dag_ends[1]).strains
+    # The chain's bubbles use this cohort even when the chain itself gets no
+    # feature because its ends carry different strains.
+    cohort = parent_cohort & (start_strains | end_strains)
 
     if start_strains != end_strains:
         logger.warning(f'Strain mismatch for {chain.__class__.__name__}={chain.id} on strains: {start_strains ^ end_strains}')
     else:
-        cohort = parent_cohort & (start_strains | end_strains)
-
         logger.debug(f'Calculating log-odds ratio for chain {chain.id} in cluster {cluster_name} with cohort size {len(cohort.susceptible)} susceptible and {len(cohort.resistant)} resistant strains.')
         susceptible_likelihood = (len(cohort.susceptible) + LAPLACE_SMOOTHING) / (len(parent_cohort.susceptible) + 2 * LAPLACE_SMOOTHING)
         resistant_likelihood = (len(cohort.resistant) + LAPLACE_SMOOTHING) / (len(parent_cohort.resistant) + 2 * LAPLACE_SMOOTHING)
@@ -547,12 +566,14 @@ def write_chain_lor(
         ))
 
     for bubble in chain.bubbles:
-        write_bubble_lor(bubble, cohort, dag, cluster_name, io_out_file, io_lor_file)
+        write_bubble_lor(bubble, cohort, dag, cluster_name, io_out_file, io_lor_file, max_paths)
 
 
 # Entrypoint
 
-@logger.catch
+# Re-raise so a failing cluster exits non-zero. The outputs are already open,
+# so a swallowed exception left truncated files that looked complete.
+@logger.catch(reraise=True)
 def main(handler: SnakemakeHandler) -> None:
     phenotype_df = load_phenotypes(handler.phenotype_table, handler.antibiotic)
     dag = load_gfa_to_dag(handler.gfa_file)
@@ -593,7 +614,7 @@ def main(handler: SnakemakeHandler) -> None:
         )
 
         for chain in bubble_gun.values():
-            write_chain_lor(chain, antibiotic_cohort, dag, cluster_name, out_f, lor_f)
+            write_chain_lor(chain, antibiotic_cohort, dag, cluster_name, out_f, lor_f, handler.max_bubble_paths)
 
 
 
@@ -629,6 +650,14 @@ def _parse_args() -> SnakemakeHandler:
         '--lor-lookup-file', required=True, type=Path,
         help='Path to the log-odds ratio lookup TSV file.'
     )
+    parser.add_argument(
+        '--max-bubble-paths', type=int, default=0,
+        help='Skip bubbles with more realized paths than this; 0 means no limit.'
+    )
+    parser.add_argument(
+        '--log-level', default='DEBUG',
+        help='Minimum level written to the log file.'
+    )
     args = parser.parse_args()
     return SnakemakeHandler(
         gfa_file=args.gfa_file,
@@ -638,6 +667,8 @@ def _parse_args() -> SnakemakeHandler:
         output_file=args.output_file,
         lor_lookup_file=args.lor_lookup_file,
         antibiotic=args.antibiotic,
+        max_bubble_paths=args.max_bubble_paths,
+        log_level=args.log_level,
     )
 
 
@@ -655,5 +686,5 @@ if __name__ == '__main__':
     except NameError:
         handler = _parse_args()
     logger.remove()
-    logger.add(handler.log_file, backtrace=True, diagnose=True, enqueue=False)
+    logger.add(handler.log_file, level=handler.log_level, backtrace=True, diagnose=True, enqueue=False)
     main(handler)
