@@ -89,6 +89,11 @@ class NucleotidePangenomeWorkflowTest(unittest.TestCase):
                                 path,
                             )
 
+    def test_nucleotide_msa_keeps_upper_case_for_panpa(self):
+        with self.workflow() as (_, rules):
+            self.assertIn("mafft --auto --preservecase", rules["align_clusters_nt"].shellcmd)
+            self.assertNotIn("--preservecase", rules["align_clusters"].shellcmd)
+
     def test_nucleotide_alignment_uses_the_dna_matrix_not_translation(self):
         with self.workflow() as (_, rules):
             rule = rules["panpa_align_nt"]

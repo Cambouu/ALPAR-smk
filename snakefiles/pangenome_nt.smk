@@ -82,14 +82,33 @@ use rule cluster_fasta_splits as cluster_fasta_splits_nt with:
 # Alignment and Graphs
 # -----------------------
 
-# mafft --auto detects nucleotide input.
-use rule align_clusters as align_clusters_nt with:
+# mafft --auto detects nucleotide input, but writes nucleotide alignments in
+# lower case (protein alignments keep upper case). PanPA indexes its scoring
+# matrix with ord(base) - 65, so lower-case graphs matched no query: run 67334
+# got alignments only for single-sequence clusters, which skip MAFFT.
+# --preservecase keeps the upper-case input.
+rule align_clusters_nt:
     input:
         manifest = NT_SHARD_MANIFEST,
         cluster_store = rules.split_cluster_fasta_nt.output[0],
     output: directory(PANGENOME_NT_OUT_DIR / "cluster_alignments" / "{shard}")
     log: PANGENOME_NT_LOGS_DIR / "align_clusters" / "{shard}.log"
     benchmark: BENCHMARKS_DIR / "align_clusters_nt_{shard}.tsv"
+    conda: ENVS_DIR.format("mafft")
+    container: CONTAINERS.format("mafft:1.0.0")
+    threads: workflow.cores
+    shell:
+        r"""
+        mkdir -p {output:q}
+        export STORE={input.cluster_store:q} OUT={output:q}
+        bash {FOR_EACH_CLUSTER:q} {input.manifest:q} {threads} {log:q} '
+            if [ "$(grep -c "^>" "$STORE/$1")" -eq 1 ]; then
+                echo "Single sequence; skipping alignment."
+                cp "$STORE/$1" "$OUT/$1"
+            else
+                mafft --auto --preservecase --thread 1 "$STORE/$1" > "$OUT/$1"
+            fi'
+        """
 
 
 # PanPA builds graphs from any MSA alphabet.
@@ -154,9 +173,20 @@ rule bubble_features_nt:
         """
 
 
-use rule merge_bubble_features as merge_bubble_features_nt with:
+# Like merge_bubble_features, but an empty table fails the job: run 67334
+# produced empty test features without any rule failing.
+rule merge_bubble_features_nt:
+    localrule: True
     input: expand(rules.bubble_features_nt.output.output_dir, shard=PANGENOME_SHARDS, allow_missing=True)
     output: PANGENOME_NT_OUT_DIR / "bubble_features_{antibiotic}.tsv"
+    shell:
+        r"""
+        find {input:q} -maxdepth 1 -type f -name '*.tsv' -print0 | sort -z | xargs -0 -r cat > {output:q}
+        if [ ! -s {output:q} ]; then
+            echo "No bubble features in {input}" >&2
+            exit 1
+        fi
+        """
 
 
 # -----------------------
@@ -218,7 +248,7 @@ use rule gaf_lor_features as gaf_lor_features_nt with:
     benchmark: BENCHMARKS_DIR / "gaf_lor_features_nt_{antibiotic}_{shard}.tsv"
 
 
-use rule merge_bubble_features_test as merge_bubble_features_test_nt with:
+use rule merge_bubble_features_nt as merge_bubble_features_test_nt with:
     input: expand(rules.gaf_lor_features_nt.output.output_dir, shard=PANGENOME_SHARDS, allow_missing=True)
     output: PANGENOME_NT_OUT_DIR / "bubble_features_test_{antibiotic}.tsv"
 
@@ -270,6 +300,13 @@ use rule combined_ml as combined_ml_nt with:
         fia         = EXPERIMENT_NT_ML_STEM + ".txt",
     benchmark: BENCHMARKS_DIR / "combined_ml_nt_{antibiotic}_seed_{random_seed}_testsize_{test_size}_resampling_{resampling_strategy}_{model_type}_FIA_{feature_importance_analysis_strategy}.tsv"
     log: EXPERIMENT_NT_ML_STEM + ".log"
+    resources:
+        mem_mb = int(config.get("ml_mem_mb", 4000)) // len(ANTIBIOTICS),
+        # Nucleotide graphs give about 6x the protein bubble features (1.55M vs
+        # 250k for ampicillin), so the table has about 2.3M columns instead of
+        # 1.03M; the baseline used 47 GB at 1.03M. HTCondor gets the full ML
+        # budget per job; mem_mb keeps the controller's pool accounting.
+        htcondor_request_mem_mb = int(config.get("ml_mem_mb", 4000)),
 
 
 rule experiment_pangenome_nt:

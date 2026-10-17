@@ -32,7 +32,8 @@ use rule bubble_features_nt as bubble_features_fixed with:
     benchmark: BENCHMARKS_DIR / "bubble_features_fixed_{antibiotic}_{shard}.tsv"
 
 
-use rule merge_bubble_features as merge_bubble_features_fixed with:
+# Merges fail on an empty table, like the nucleotide ones.
+use rule merge_bubble_features_nt as merge_bubble_features_fixed with:
     input: expand(rules.bubble_features_fixed.output.output_dir, shard=PANGENOME_SHARDS, allow_missing=True)
     output: PANPROTEOME_FIXED_OUT_DIR / "bubble_features_{antibiotic}.tsv"
 
@@ -48,7 +49,7 @@ use rule gaf_lor_features as gaf_lor_features_fixed with:
     benchmark: BENCHMARKS_DIR / "gaf_lor_features_fixed_{antibiotic}_{shard}.tsv"
 
 
-use rule merge_bubble_features_test as merge_bubble_features_test_fixed with:
+use rule merge_bubble_features_nt as merge_bubble_features_test_fixed with:
     input: expand(rules.gaf_lor_features_fixed.output.output_dir, shard=PANGENOME_SHARDS, allow_missing=True)
     output: PANPROTEOME_FIXED_OUT_DIR / "bubble_features_test_{antibiotic}.tsv"
 
