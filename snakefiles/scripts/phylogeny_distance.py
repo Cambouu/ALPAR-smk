@@ -34,7 +34,7 @@ class SnakemakeHandler(BaseModel):
         description="Log file."
     )
 
-@logger.catch
+@logger.catch(reraise=True)
 def main(handler: SnakemakeHandler):
     tree: dendropy.Tree = dendropy.Tree.get(
         path=handler.phylogeny,

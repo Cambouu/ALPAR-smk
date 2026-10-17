@@ -30,7 +30,7 @@ class SnakemakeHandler(BaseModel):
     )
 
 
-@logger.catch
+@logger.catch(reraise=True)
 def main(handler: SnakemakeHandler):
 
     with handler.binary_mutation_table.open('r') as f:

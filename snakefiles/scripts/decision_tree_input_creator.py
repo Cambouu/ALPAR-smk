@@ -178,7 +178,7 @@ def decision_tree(
     pickle.dump(clf, open(tree_model, 'wb'))
 
 
-@logger.catch
+@logger.catch(reraise=True)
 def main(handler: SnakemakeHandler):
 
     with open(handler.pyseer_output_raw, 'r') as raw_gwas_file:

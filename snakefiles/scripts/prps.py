@@ -146,7 +146,7 @@ def find_nodes_with_descendants_from_matrix(leaves, tree, dist_matrix):
     return sum_dist
 
 
-@logger.catch
+@logger.catch(reraise=True)
 def PRPS_runner(handler: SnakemakeHandler):
 
     tree_file = handler.phylogeny_tree

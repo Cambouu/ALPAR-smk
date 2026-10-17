@@ -46,7 +46,7 @@ class SnakemakeHandler(BaseModel):
     )
 
 
-@logger.catch
+@logger.catch(reraise=True)
 def phenotype_dataframe_creator(handler: SnakemakeHandler) -> None:
     """Creates a binary table of checksum\tantibiotic(s) from a file containing checksum\tfilepath."""
 
