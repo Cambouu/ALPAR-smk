@@ -148,7 +148,7 @@ def parameter_sampler(param_grid_dict, n_iter=10, random_state=None):
             samples.append(s)
     return samples
 
-@logger.catch
+@logger.catch(reraise=True)
 def main(handler: SnakemakeHandler):
     output_file = handler.best_params
     binary_mutation_table = handler.binary_mutation_table

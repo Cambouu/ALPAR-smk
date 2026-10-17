@@ -38,7 +38,7 @@ class SnakemakeHandler(BaseModel):
     )
 
 
-@logger.catch
+@logger.catch(reraise=True)
 def binary_gpa_cdhit(handler: SnakemakeHandler) -> None:
     """Create Protein Presence/Absence information as a binary table.
     
