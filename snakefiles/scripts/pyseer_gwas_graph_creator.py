@@ -69,7 +69,7 @@ def pyseer_plot_file_creator(input_file) -> pd.DataFrame:
 
     return pd.DataFrame(rows)
 
-@logger.catch
+@logger.catch(reraise=True)
 def main(handler: SnakemakeHandler):
 
     logger.info("Starting pyseer GWAS graph creation")
