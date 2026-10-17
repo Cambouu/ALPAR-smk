@@ -84,6 +84,9 @@ include: SNAKEFILES_DIR / "ml.smk"
 # Experiment: nucleotide pangenome instead of the panproteome (target
 # experiment_pangenome_nt). Not part of automatix.
 include: SNAKEFILES_DIR / "pangenome_nt.smk"
+# Experiment: the baseline panproteome with the bubble_features fix (target
+# experiment_panproteome_fixed). Not part of automatix.
+include: SNAKEFILES_DIR / "panproteome_fixed.smk"
 
 
 rule automatix:

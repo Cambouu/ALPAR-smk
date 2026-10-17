@@ -66,6 +66,11 @@ EXPECTED_ENVIRONMENTS = {
     "gaf_lor_features_nt": "python313",
     "pivot_features_nt": "miller",
     "combined_ml_nt": "ml",
+    # Fixed panproteome baseline (panproteome_fixed.smk).
+    "bubble_features_fixed": "python313",
+    "gaf_lor_features_fixed": "python313",
+    "pivot_features_fixed": "miller",
+    "combined_ml_fixed": "ml",
 }
 
 
@@ -84,6 +89,7 @@ PANGENOME_SHARD_RULES = {
     "bubble_features", "panpa_align", "gaf_lor_features",
     "align_clusters_nt", "panpa_build_gfa_nt", "bubblegun_runner_nt",
     "bubble_features_nt", "panpa_align_nt", "gaf_lor_features_nt",
+    "bubble_features_fixed", "gaf_lor_features_fixed",
 }
 
 
@@ -114,7 +120,7 @@ class WorkflowContainersTest(unittest.TestCase):
             rules = {rule.name: rule for rule in workflow.rules}
             env_rules = {name for name, rule in rules.items() if rule.conda_env}
             self.assertEqual(env_rules, set(EXPECTED_ENVIRONMENTS))
-            self.assertEqual(len(env_rules), 50)
+            self.assertEqual(len(env_rules), 54)
             for name, key in EXPECTED_ENVIRONMENTS.items():
                 with self.subTest(rule=name):
                     self.assertEqual(
@@ -148,7 +154,7 @@ class WorkflowContainersTest(unittest.TestCase):
 
     def test_general_purpose_container_is_inherited(self):
         with self.workflow() as workflow:
-            self.assertEqual(len(workflow.rules), 83)
+            self.assertEqual(len(workflow.rules), 91)
             for rule in workflow.rules:
                 if not rule.conda_env:
                     self.assertEqual(
@@ -269,10 +275,11 @@ class WorkflowContainersTest(unittest.TestCase):
             # combined_ml runs one antibiotic per job so each gets its own memory.
             self.assertEqual(profile["group-components"]["combined_ml_batch"], 1)
             self.assertEqual(profile["group-components"]["combined_ml_nt_batch"], 1)
+            self.assertEqual(profile["group-components"]["combined_ml_fixed_batch"], 1)
             self.assertTrue(all(
                 components == 2000
                 for group, components in profile["group-components"].items()
-                if group not in {"combined_ml_batch", "combined_ml_nt_batch"}
+                if group not in {"combined_ml_batch", "combined_ml_nt_batch", "combined_ml_fixed_batch"}
             ))
             for rule in workflow.rules:
                 if rule.name not in wildcard_rules:

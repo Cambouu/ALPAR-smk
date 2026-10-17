@@ -38,6 +38,9 @@ group-components:
   cluster_fasta_splits_nt_batch: 2000
   pivot_features_nt_batch: 2000
   combined_ml_nt_batch: 1
+  # Fixed panproteome baseline (panproteome_fixed.smk).
+  pivot_features_fixed_batch: 2000
+  combined_ml_fixed_batch: 1
 
 # Global pool: total memory of all concurrently running jobs (20 jobs x 32 GB).
 # Group jobs stay near 32 GB because cores: 32 limits how many members run at once.
@@ -275,6 +278,19 @@ set-resources:
     container_image: docker.io/cambouu/alpar-smk-miller:1.0.0
   combined_ml_nt:
     # Inherits combined_ml's rule-level memory; see combined_ml above.
+    container_image: docker.io/cambouu/alpar-smk-ml:1.0.0
+  # Fixed panproteome baseline (panproteome_fixed.smk); same sizes as above.
+  bubble_features_fixed:
+    mem_mb: 64000
+    htcondor_request_mem_mb: 61035
+    container_image: docker.io/cambouu/alpar-smk-python313:1.0.0
+  gaf_lor_features_fixed:
+    mem_mb: 32000
+    htcondor_request_mem_mb: 30517
+    container_image: docker.io/cambouu/alpar-smk-python313:1.0.0
+  pivot_features_fixed:
+    container_image: docker.io/cambouu/alpar-smk-miller:1.0.0
+  combined_ml_fixed:
     container_image: docker.io/cambouu/alpar-smk-ml:1.0.0
 
 set-threads:

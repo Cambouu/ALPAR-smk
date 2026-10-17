@@ -97,6 +97,28 @@ class NucleotidePangenomeWorkflowTest(unittest.TestCase):
             self.assertNotIn("--dna", rule.shellcmd)
             self.assertNotIn("--sub_matrix", rules["panpa_align"].shellcmd)
 
+    def test_fixed_panproteome_reuses_baseline_graphs_and_writes_separately(self):
+        with self.workflow() as (root, rules):
+            output = root / "output"
+            baseline = output / "pangenome"
+            fixed = rules["bubble_features_fixed"]
+            self.assertEqual(fixed.input.gfa_dir, str(baseline / "panpa" / "gfa" / "{shard}"))
+            self.assertEqual(fixed.input.bubblegun_dir, str(baseline / "bubblegun" / "{shard}"))
+            self.assertEqual(fixed.shellcmd, rules["bubble_features_nt"].shellcmd)
+            self.assertEqual(
+                rules["gaf_lor_features_fixed"].input.gaf_dir,
+                str(baseline / "panpa" / "alignments" / "{antibiotic}" / "{shard}"),
+            )
+            for name, rule in rules.items():
+                if name.endswith("_fixed") and name != "experiment_panproteome_fixed":
+                    with self.subTest(rule=name):
+                        for path in rule.output:
+                            self.assertTrue(
+                                Path(path).is_relative_to(output / "panproteome_fixed")
+                                or Path(path).is_relative_to(output / "experiments" / "snp_gpa_panproteome_fixed"),
+                                path,
+                            )
+
     def test_only_nucleotide_bubble_features_cap_paths_and_logging(self):
         with self.workflow() as (_, rules):
             nucleotide = rules["bubble_features_nt"].shellcmd
