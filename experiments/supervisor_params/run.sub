@@ -1,0 +1,19 @@
+# Submit from the directory that holds run.sh and fixed_params_xgb.py:
+#   condor_submit run.sub
+universe = docker
+docker_image = docker.io/cambouu/alpar-smk-ml:1.0.0
+executable = /bin/bash
+transfer_executable = False
+arguments = "$ENV(PWD)/run.sh $(abx) $ENV(PWD)/results"
+output = $ENV(PWD)/logs/$(abx).out
+error = $ENV(PWD)/logs/$(abx).err
+log = $ENV(PWD)/logs/$(abx).log
+request_cpus = 32
+request_memory = $(mem)
+request_disk = 10GB
+requirements = UidDomain == "cs.uni-saarland.de"
++WantGPUHomeMounted = true
+queue abx, mem from (
+    ampicillin, 128GB
+    ciprofloxacin, 192GB
+)
