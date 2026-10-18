@@ -25,6 +25,11 @@ pangenome_shards: 8
 # 1,868 x 1.12M float32 feature matrix is 8.4 GB; with split copies and XGBoost's
 # DMatrix each job needs well over 64 GB (ampicillin alone used 47 GB).
 ml_mem_mb: 256000
+# XGBoost grid points combined_ml trains at once (threads split evenly; results
+# are bit-identical to sequential fits). One fit used only 2-4 of 16 cores. Four
+# fits on 744k-feature SNP tables peaked near 210 GB; the 1.12M-feature
+# baseline table needs more per fit, so 2 stays within the 256 GB request.
+ml_parallel_fits: 2
 mock: False
 
 datasail_delta: 0.2

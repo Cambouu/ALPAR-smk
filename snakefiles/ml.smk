@@ -49,15 +49,17 @@ rule combined_ml:
     params:
         feature_importance_analysis = True,
         save_model = True,
+        # Grid points trained at once; results are identical to one fit at a time.
+        parallel_fits = lookup(dpath="ml_parallel_fits", within=config, default=1),
     conda: ENVS_DIR.format("ml")
     container: CONTAINERS.format("ml:1.0.0")
     threads: lambda wildcards: workflow.cores // len(ANTIBIOTICS)
     resources:
-        # Each antibiotic gets an equal share of the ML memory budget. It is
-        # independent of the global mem_mb pool, which limits concurrent jobs.
-        # Keep HTCondor's reservation aligned with this rule's budget.
-        mem_mb = int(config.get("ml_mem_mb", 4000)) // len(ANTIBIOTICS),        
-        htcondor_request_mem_mb = int(config.get("ml_mem_mb", 4000)) // len(ANTIBIOTICS),
+        # mem_mb is each antibiotic's share of the ML budget in the controller's
+        # global pool, which limits concurrent jobs. Parallel fits each hold
+        # their own XGBoost matrices, so HTCondor reserves the whole budget.
+        mem_mb = int(config.get("ml_mem_mb", 4000)) // len(ANTIBIOTICS),
+        htcondor_request_mem_mb = int(config.get("ml_mem_mb", 4000)),
     script:
         SCRIPTS_DIR / "combined_ml.py"
 
