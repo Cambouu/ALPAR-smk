@@ -1,10 +1,11 @@
 # Submit from the directory that holds run.sh and fixed_params_xgb.py:
-#   condor_submit run.sub
+#   condor_submit run.sub                      (every table)
+#   condor_submit 'TABLES=baseline gpa' run.sub (only these tables)
 universe = docker
 docker_image = docker.io/cambouu/alpar-smk-ml:1.0.0
 executable = /bin/bash
 transfer_executable = False
-arguments = "$ENV(PWD)/run.sh $(abx) $ENV(PWD)/results"
+arguments = "$ENV(PWD)/run.sh $(abx) $ENV(PWD)/results $(TABLES:)"
 output = $ENV(PWD)/logs/$(abx).out
 error = $ENV(PWD)/logs/$(abx).err
 log = $ENV(PWD)/logs/$(abx).log

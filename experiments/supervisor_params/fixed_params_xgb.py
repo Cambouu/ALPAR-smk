@@ -37,13 +37,17 @@ def load_labels(phenotype_table, antibiotic):
 
 
 def load_table(path):
-    """Wide table: header 'hash<TAB>feature...', one row per strain. Strips CR."""
-    with open(path) as fh:
+    """Wide table: header 'hash<TAB>feature...', one row per strain.
+
+    Lines are split on LF only: old GPA cells end in a stray CR ("1 + CR"), which
+    text mode would treat as a line break.
+    """
+    with open(path, newline="\n") as fh:
         n_features = len(fh.readline().rstrip("\r\n").split("\t")) - 1
         n_rows = sum(1 for _ in fh)
     matrix = np.zeros((n_rows, n_features), dtype=np.float32)
     strains = {}
-    with open(path) as fh:
+    with open(path, newline="\n") as fh:
         fh.readline()
         for i, line in enumerate(fh):
             cells = line.rstrip("\r\n").split("\t")
