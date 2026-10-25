@@ -5,7 +5,9 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 import gzip
+import os
 import subprocess
+import sys
 import unittest
 
 from snakemake.api import SnakemakeApi
@@ -117,7 +119,9 @@ class PangraphWorkflowTest(unittest.TestCase):
                 log=str(root / "log"),
                 PREPARE_PANGRAPH_INPUT=str(REPO / "snakefiles" / "scripts" / "prepare_pangraph_input.py"),
             )
-            subprocess.run(["bash", "-c", command], check=True)
+            # The rule's image provides `python`; a login node may only have python3.
+            path = os.pathsep.join([str(Path(sys.executable).parent), os.environ["PATH"]])
+            subprocess.run(["bash", "-c", command], check=True, env={**os.environ, "PATH": path})
             self.assertEqual(samples.read_text().split(), [str(store / SAMPLE)])
             with gzip.open(fasta, "rt") as handle:
                 headers = [line.strip() for line in handle if line.startswith(">")]
