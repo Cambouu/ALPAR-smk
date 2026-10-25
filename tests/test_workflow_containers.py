@@ -54,7 +54,18 @@ EXPECTED_ENVIRONMENTS = {
     "pyseer_gwas_graph_creator": "gwas",
     "decision_tree_input_creator": "gwas",
     "prps_ml_preprocessor": "python313",
-    "combined_ml": "ml"
+    "combined_ml": "ml",
+    # PanGraph experiment (pangraph.smk).
+    "pangraph_input": "python313",
+    "pangraph_features": "python313",
+    "pivot_pangraph_set": "miller",
+    "combined_ml_pangraph": "ml",
+    "pangraph_report": "python313",
+}
+
+# Rules with an image but no Conda package, by image reference.
+CONTAINER_ONLY_RULES = {
+    "pangraph_build": "pangraph@sha256:a65d99d6fdf0166f9e2fcfba5327982b7d5c07141953484508a6b5c585ed04b0",
 }
 
 
@@ -64,6 +75,14 @@ IMAGE_TAGS = {"gwas": "1.0.1"}
 
 def image_tag(key):
     return IMAGE_TAGS.get(key, "1.0.0")
+
+
+def image_ref(rule_name):
+    """Image reference after the template prefix: '<key>:<tag>' or '<key>@<digest>'."""
+    if rule_name in CONTAINER_ONLY_RULES:
+        return CONTAINER_ONLY_RULES[rule_name]
+    key = EXPECTED_ENVIRONMENTS.get(rule_name, "python313")
+    return f"{key}:{image_tag(key)}"
 
 
 # Pangenome shard rules are multithreaded jobs that process their clusters in
@@ -101,7 +120,7 @@ class WorkflowContainersTest(unittest.TestCase):
             rules = {rule.name: rule for rule in workflow.rules}
             env_rules = {name for name, rule in rules.items() if rule.conda_env}
             self.assertEqual(env_rules, set(EXPECTED_ENVIRONMENTS))
-            self.assertEqual(len(env_rules), 40)
+            self.assertEqual(len(env_rules), 45)
             for name, key in EXPECTED_ENVIRONMENTS.items():
                 with self.subTest(rule=name):
                     self.assertEqual(
@@ -135,9 +154,9 @@ class WorkflowContainersTest(unittest.TestCase):
 
     def test_general_purpose_container_is_inherited(self):
         with self.workflow() as workflow:
-            self.assertEqual(len(workflow.rules), 66)
+            self.assertEqual(len(workflow.rules), 75)
             for rule in workflow.rules:
-                if not rule.conda_env:
+                if not rule.conda_env and rule.name not in CONTAINER_ONLY_RULES:
                     self.assertEqual(
                         rule.container_img,
                         "docker://docker.io/cambouu/alpar-smk-python313:1.0.0",
@@ -148,10 +167,9 @@ class WorkflowContainersTest(unittest.TestCase):
             container_format="docker://docker.io/example/custom-prefix-{0}"
         ) as workflow:
             for rule in workflow.rules:
-                key = EXPECTED_ENVIRONMENTS.get(rule.name, "python313")
                 self.assertEqual(
                     rule.container_img,
-                    f"docker://docker.io/example/custom-prefix-{key}:{image_tag(key)}",
+                    f"docker://docker.io/example/custom-prefix-{image_ref(rule.name)}",
                 )
 
     def test_rule_can_change_its_tag_independently(self):
@@ -222,7 +240,7 @@ class WorkflowContainersTest(unittest.TestCase):
             'UidDomain == "cs.uni-saarland.de"',
         )
         self.assertTrue(profile["default-resources"]["classad_WantGPUHomeMounted"])
-        self.assertEqual(set(profile["set-resources"]), set(EXPECTED_ENVIRONMENTS))
+        self.assertEqual(set(profile["set-resources"]), set(EXPECTED_ENVIRONMENTS) | set(CONTAINER_ONLY_RULES))
         with self.workflow() as workflow:
             for rule in workflow.rules:
                 image = profile["set-resources"].get(rule.name, {}).get(
@@ -254,11 +272,13 @@ class WorkflowContainersTest(unittest.TestCase):
                 set(groups.values()),
             )
             # combined_ml runs one antibiotic per job so each gets its own memory.
-            self.assertEqual(profile["group-components"]["combined_ml_batch"], 1)
+            single = {"combined_ml_batch", "combined_ml_pangraph_batch"}
+            for group in single:
+                self.assertEqual(profile["group-components"][group], 1)
             self.assertTrue(all(
                 components == 2000
                 for group, components in profile["group-components"].items()
-                if group != "combined_ml_batch"
+                if group not in single
             ))
             for rule in workflow.rules:
                 if rule.name not in wildcard_rules:

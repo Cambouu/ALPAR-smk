@@ -81,6 +81,10 @@ include: SNAKEFILES_DIR / "prps.smk"
 include: SNAKEFILES_DIR / "gwas.smk"
 include: SNAKEFILES_DIR / "ml.smk"
 
+# Experiment: PanGraph features from the assemblies, compared with snippy's SNPs
+# (target experiment_pangraph). Not part of automatix.
+include: SNAKEFILES_DIR / "pangraph.smk"
+
 
 rule automatix:
     input:

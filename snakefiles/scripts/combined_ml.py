@@ -1056,6 +1056,8 @@ if __name__ == "__main__":
         # Parameters
         feature_importance_analysis=snakemake.params['feature_importance_analysis'],
         save_model=snakemake.params['save_model'],
+        param_grid_size=snakemake.params.get('param_grid_size', 'small'),
+        param_grid_low_memory_mode=snakemake.params.get('param_grid_low_memory_mode', False),
         parallel_fits=snakemake.params.get('parallel_fits', 1),
     )
     logger.remove()

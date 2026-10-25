@@ -34,6 +34,9 @@ group-components:
   # One antibiotic per job: bundled, both shared one container and ciprofloxacin
   # was killed for memory on 2026-09-28.
   combined_ml_batch: 1
+  # PanGraph experiment (pangraph.smk).
+  pivot_pangraph_set_batch: 2000
+  combined_ml_pangraph_batch: 1
 
 # Global pool: total memory of all concurrently running jobs (20 jobs x 32 GB).
 # Group jobs stay near 32 GB because cores: 32 limits how many members run at once.
@@ -224,6 +227,33 @@ set-resources:
     # mem_mb and htcondor_request_mem_mb are computed dynamically in ml.smk;
     # setting either here would override that rule-level calculation.
     container_image: docker.io/cambouu/alpar-smk-ml:1.0.0
+  # PanGraph experiment (pangraph.smk). Build and extraction sizes are
+  # extrapolated from 5-21 local genomes to 1,868; see PANGRAPH_HANDOFF.md in
+  # the thesis repository.
+  pangraph_input:
+    mem_mb: 4000
+    htcondor_request_mem_mb: 3815
+    container_image: docker.io/cambouu/alpar-smk-python313:1.0.0
+  pangraph_build:
+    # Expected about 126 GB.
+    mem_mb: 256000
+    htcondor_request_mem_mb: 244141
+    # alpar-smk-pangraph:1.0.0 (pangraph 1.4.0 and the Snakemake worker), pinned.
+    container_image: docker.io/cambouu/alpar-smk-pangraph@sha256:a65d99d6fdf0166f9e2fcfba5327982b7d5c07141953484508a6b5c585ed04b0
+  pangraph_features:
+    # Expected about 44 GB: the graph JSON is held in memory.
+    mem_mb: 96000
+    htcondor_request_mem_mb: 91553
+    container_image: docker.io/cambouu/alpar-smk-python313:1.0.0
+  pivot_pangraph_set:
+    container_image: docker.io/cambouu/alpar-smk-miller:1.0.0
+  combined_ml_pangraph:
+    # Inherits combined_ml's rule-level memory; see combined_ml above.
+    container_image: docker.io/cambouu/alpar-smk-ml:1.0.0
+  pangraph_report:
+    mem_mb: 8000
+    htcondor_request_mem_mb: 7630
+    container_image: docker.io/cambouu/alpar-smk-python313:1.0.0
 
 set-threads:
   cd_hit_create_db: 8

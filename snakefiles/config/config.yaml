@@ -32,5 +32,20 @@ ml_mem_mb: 256000
 ml_parallel_fits: 2
 mock: False
 
+# PanGraph experiment (snakefiles/pangraph.smk, target experiment_pangraph).
+# Name of the reference in the graph; variants are named in its coordinates.
+pangraph_ref_name: "MG1655"
+# Keep PanGraph features carried by at least this many strains. Counted over
+# all strains without labels; 1 keeps every feature, like the SNP table.
+pangraph_min_carriers: 1
+# Feature sets trained and compared: name -> merged families (snp, gpa, pangraph).
+pangraph_feature_sets:
+  snp_gpa: [snp, gpa]
+  gpa_pangraph: [gpa, pangraph]
+# The report gives every other set's differences against this one.
+pangraph_reference_set: snp_gpa
+# XGBoost grid for the experiment: small has 36 combinations (combined_ml.py).
+ml_param_grid_size: small
+
 datasail_delta: 0.2
 datasail_epsilon: 0.2
