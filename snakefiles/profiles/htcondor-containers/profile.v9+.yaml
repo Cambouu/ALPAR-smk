@@ -34,8 +34,9 @@ group-components:
   # One antibiotic per job: bundled, both shared one container and ciprofloxacin
   # was killed for memory on 2026-09-28.
   combined_ml_batch: 1
-  # PanGraph experiment (pangraph.smk).
-  pivot_pangraph_set_batch: 2000
+  # PanGraph experiment (pangraph.smk). One pivot per job: bundled, the
+  # SNP + GPA pivot waited for the PanGraph features (run 68264, 2026-10-25).
+  pivot_pangraph_set_batch: 1
   combined_ml_pangraph_batch: 1
 
 # Global pool: total memory of all concurrently running jobs (20 jobs x 32 GB).

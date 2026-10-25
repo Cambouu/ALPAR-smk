@@ -8,7 +8,11 @@ PanGraph treats every record as its own path; the sample prefix is how the featu
 groups contigs into strains. The reference comes first, then the assemblies sorted by sample name
 (PanGraph's output depends on input order). Standard library only (runs in ALPAR's python313 image).
 
-Usage: python prepare_pangraph_input.py --reference ref.fa --ref-name MG1655 --out input.fa.gz
+The reference may be FASTA or GenBank (ALPAR's GBFF, the reference snippy uses; GenBank records are
+named by their LOCUS name, as in snippy's ref.fa). Any sequence with a character outside PanGraph's
+nucleotide alphabet stops the script: ALPAR's fasta_file is a protein database, not a genome.
+
+Usage: python prepare_pangraph_input.py --reference ref.gbff --ref-name MG1655 --out input.fa.gz
                                         assembly [assembly ...] | @list.txt (one path per line)
 """
 
@@ -17,11 +21,40 @@ import gzip
 import os
 import sys
 
+# PanGraph's FASTA alphabet (IUPAC nucleotide codes), checked after uppercasing.
+NUCLEOTIDES = frozenset("ACGTRYKMSWBDHVN")
+
+
+def opener(path):
+    return gzip.open(path, "rt") if path.endswith(".gz") else open(path)
+
+
+def is_genbank(path):
+    with opener(path) as handle:
+        return next((line for line in handle if line.strip()), "").startswith("LOCUS")
+
+
+def genbank_records(path):
+    name, chunks, in_sequence = None, [], False
+    with opener(path) as handle:
+        for line in handle:
+            if line.startswith("LOCUS"):
+                name, chunks, in_sequence = line.split()[1], [], False
+            elif line.startswith("ORIGIN"):
+                in_sequence = True
+            elif line.startswith("//"):
+                yield name, "".join(chunks)
+                in_sequence = False
+            elif in_sequence:
+                chunks.append("".join(c for c in line if c.isalpha()))
+
 
 def records(path):
-    opener = gzip.open if path.endswith(".gz") else open
+    if is_genbank(path):
+        yield from genbank_records(path)
+        return
     name, chunks = None, []
-    with opener(path, "rt") as handle:
+    with opener(path) as handle:
         for line in handle:
             if line.startswith(">"):
                 if name is not None:
@@ -64,8 +97,10 @@ def main():
             for contig, seq in records(path):
                 if "#" in contig:
                     sys.exit(f"'#' in contig name {contig!r} ({path})")
-                out.write(f">{sample}#1#{contig}\n")
                 seq = seq.upper()
+                if bad := set(seq) - NUCLEOTIDES:
+                    sys.exit(f"non-nucleotide characters {''.join(sorted(bad))!r} in {contig!r} ({path})")
+                out.write(f">{sample}#1#{contig}\n")
                 for i in range(0, len(seq), 80):
                     out.write(seq[i:i + 80] + "\n")
                 n += 1

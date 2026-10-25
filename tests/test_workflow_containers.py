@@ -271,8 +271,9 @@ class WorkflowContainersTest(unittest.TestCase):
                 set(profile["group-components"]),
                 set(groups.values()),
             )
-            # combined_ml runs one antibiotic per job so each gets its own memory.
-            single = {"combined_ml_batch", "combined_ml_pangraph_batch"}
+            # combined_ml runs one antibiotic per job so each gets its own memory;
+            # each PanGraph experiment pivot runs alone so one set cannot block another.
+            single = {"combined_ml_batch", "combined_ml_pangraph_batch", "pivot_pangraph_set_batch"}
             for group in single:
                 self.assertEqual(profile["group-components"][group], 1)
             self.assertTrue(all(

@@ -103,31 +103,51 @@ class PangraphWorkflowTest(unittest.TestCase):
                             path,
                         )
 
+    def run_input_rule(self, root, rules, reference_text):
+        store = root / "store"
+        store.mkdir()
+        (store / SAMPLE).write_text(">contig_1 len=8\nacgtacgt\n>contig_2\nTTTT\n")
+        reference = root / "reference"
+        reference.write_text(reference_text)
+        command = format_command(
+            rules["pangraph_input"].shellcmd,
+            input=SimpleNamespace(samples=[str(store / SAMPLE)], reference=str(reference)),
+            output=SimpleNamespace(fasta=str(root / "input.fa.gz"), samples=str(root / "samples.txt")),
+            params=SimpleNamespace(ref_name="MG1655"),
+            log=str(root / "log"),
+            PREPARE_PANGRAPH_INPUT=str(REPO / "snakefiles" / "scripts" / "prepare_pangraph_input.py"),
+        )
+        # The rule's image provides `python`; a login node may only have python3.
+        path = os.pathsep.join([str(Path(sys.executable).parent), os.environ["PATH"]])
+        return subprocess.run(["bash", "-c", command], env={**os.environ, "PATH": path})
+
     def test_input_rule_writes_pansn_names_for_every_sample(self):
         with self.workflow() as (root, rules):
-            store = root / "store"
-            store.mkdir()
-            (store / SAMPLE).write_text(">contig_1 len=8\nacgtacgt\n>contig_2\nTTTT\n")
-            reference = root / "reference.fasta"
-            reference.write_text(">NC_000913.3 Escherichia coli\nAAAACCCC\n")
-            fasta, samples = root / "input.fa.gz", root / "samples.txt"
-            command = format_command(
-                rules["pangraph_input"].shellcmd,
-                input=SimpleNamespace(samples=[str(store / SAMPLE)], reference=str(reference)),
-                output=SimpleNamespace(fasta=str(fasta), samples=str(samples)),
-                params=SimpleNamespace(ref_name="MG1655"),
-                log=str(root / "log"),
-                PREPARE_PANGRAPH_INPUT=str(REPO / "snakefiles" / "scripts" / "prepare_pangraph_input.py"),
+            # The GBFF snippy uses, not fasta_file (Prokka's protein database).
+            self.assertEqual(rules["pangraph_input"].input.reference, rules["snippy_runner"].input.reference)
+            genbank = (
+                "LOCUS       NC_000913               12 bp    DNA     circular CON 09-MAR-2022\n"
+                "DEFINITION  Escherichia coli str. K-12 substr. MG1655, complete genome.\n"
+                "FEATURES             Location/Qualifiers\n"
+                "     source          1..12\n"
+                "ORIGIN\n"
+                "        1 agcttttcat tc\n"
+                "//\n"
             )
-            # The rule's image provides `python`; a login node may only have python3.
-            path = os.pathsep.join([str(Path(sys.executable).parent), os.environ["PATH"]])
-            subprocess.run(["bash", "-c", command], check=True, env={**os.environ, "PATH": path})
-            self.assertEqual(samples.read_text().split(), [str(store / SAMPLE)])
-            with gzip.open(fasta, "rt") as handle:
-                headers = [line.strip() for line in handle if line.startswith(">")]
-            self.assertEqual(headers, [
-                ">MG1655#1#NC_000913.3", f">{SAMPLE}#1#contig_1", f">{SAMPLE}#1#contig_2",
+            self.assertEqual(self.run_input_rule(root, rules, genbank).returncode, 0)
+            self.assertEqual((root / "samples.txt").read_text().split(), [str(root / "store" / SAMPLE)])
+            with gzip.open(root / "input.fa.gz", "rt") as handle:
+                lines = [line.strip() for line in handle]
+            self.assertEqual(lines, [
+                ">MG1655#1#NC_000913", "AGCTTTTCATTC",
+                f">{SAMPLE}#1#contig_1", "ACGTACGT", f">{SAMPLE}#1#contig_2", "TTTT",
             ])
+
+    def test_input_rule_rejects_a_protein_reference(self):
+        with self.workflow() as (root, rules):
+            protein = ">tr|A0A024L2A9|A0A024L2A9_ECOLX Protein\nMTVQTSKNPQVDI\n"
+            self.assertNotEqual(self.run_input_rule(root, rules, protein).returncode, 0)
+            self.assertIn("non-nucleotide characters", (root / "log").read_text())
 
 
 if __name__ == "__main__":

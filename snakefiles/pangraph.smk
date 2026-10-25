@@ -55,7 +55,9 @@ rule pangraph_input:
             Path(rules.rename_files.output.store) / "{sample}",
             sample = get_sample_names(wc)
         ),
-        reference = FASTA_FILE,
+        # MG1655 as GenBank, the reference snippy uses, so positions share its
+        # coordinates. FASTA_FILE is the Prokka protein database, not a genome.
+        reference = GBFF_FILE,
     output:
         fasta = PANGRAPH_OUT_DIR / "input.fa.gz",
         samples = PANGRAPH_OUT_DIR / "input_samples.txt",
