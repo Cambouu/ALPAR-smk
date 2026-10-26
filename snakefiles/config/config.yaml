@@ -35,6 +35,10 @@ mock: False
 # PanGraph experiment (snakefiles/pangraph.smk, target experiment_pangraph).
 # Name of the reference in the graph; variants are named in its coordinates.
 pangraph_ref_name: "MG1655"
+# The strains are split into this many groups, built as subgraphs and joined by
+# pangraph merge (one build of all 1,868 went over 244 GB). 16 gives about 117
+# genomes per subgraph and 15 merges in 4 levels.
+pangraph_groups: 16
 # Keep PanGraph features carried by at least this many strains. Counted over
 # all strains without labels; 1 keeps every feature, like the SNP table.
 pangraph_min_carriers: 1

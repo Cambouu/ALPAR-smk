@@ -323,20 +323,45 @@ def write_report(results, best_params, fia, pivots, carriers, samples, markdown,
     md.append("## Cost (Snakemake benchmarks)\n")
     md.append("| Step | Wall time (h) | Peak RSS (GiB) |")
     md.append("|---|---|---|")
-    steps = [(rule, f"{rule}.tsv") for rule in ("pangraph_input", "pangraph_build", "pangraph_features")]
-    steps += [(f"pivot {name}", f"pivot_pangraph_set_{name}.tsv") for name in set_names]
-    steps += [(f"combined_ml {name} / {antibiotic}", f"combined_ml_pangraph_{name}_{antibiotic}_{stem}.tsv")
-              for antibiotic in antibiotics for name in set_names]
-    for label, filename in steps:
-        bench = read_benchmark(Path(benchmarks_dir) / filename) if benchmarks_dir else None
+    benchmarks = Path(benchmarks_dir) if benchmarks_dir else None
+
+    def row(label, filename):
+        bench = read_benchmark(benchmarks / filename) if benchmarks else None
         if bench is None:
             md.append(f"| {label} | – | – |")
-            continue
+            return
         seconds, rss = bench
         md.append(f"| {label} | {seconds / 3600:.2f} | {fmt(None if rss is None else rss / 1024, 1)} |")
         tsv.append((label, "", "wall_s", seconds))
         if rss is not None:
             tsv.append((label, "", "max_rss_mb", rss))
+
+    row("pangraph_input", "pangraph_input.tsv")
+    # The subgraph builds as one row: the longest, with the total in the label.
+    subgraphs = [] if benchmarks is None else [
+        bench for path in sorted(benchmarks.glob("pangraph_subgraph_*.tsv")) if (bench := read_benchmark(path))]
+    if subgraphs:
+        rss = [r for _, r in subgraphs if r is not None]
+        longest, total = max(s for s, _ in subgraphs), sum(s for s, _ in subgraphs)
+        md.append(f"| pangraph_subgraph ×{len(subgraphs)} (longest; total {total / 3600:.2f} h) | "
+                  f"{longest / 3600:.2f} | {fmt(max(rss) / 1024 if rss else None, 1)} |")
+        tsv += [("pangraph_subgraph", "", "count", len(subgraphs)), ("pangraph_subgraph", "", "longest_wall_s", longest),
+                ("pangraph_subgraph", "", "total_wall_s", total)]
+        if rss:
+            tsv.append(("pangraph_subgraph", "", "max_rss_mb", max(rss)))
+    else:
+        md.append("| pangraph_subgraph | – | – |")
+    # Merges in tree order: smallest spans first.
+    spans = [] if benchmarks is None else [path.stem.removeprefix("pangraph_merge_")
+                                           for path in benchmarks.glob("pangraph_merge_*.tsv")]
+    for span in sorted(spans, key=lambda s: (int(s.split("-")[1]) - int(s.split("-")[0]), int(s.split("-")[0]))):
+        row(f"pangraph_merge {span}", f"pangraph_merge_{span}.tsv")
+    row("pangraph_features", "pangraph_features.tsv")
+    for name in set_names:
+        row(f"pivot {name}", f"pivot_pangraph_set_{name}.tsv")
+    for antibiotic in antibiotics:
+        for name in set_names:
+            row(f"combined_ml {name} / {antibiotic}", f"combined_ml_pangraph_{name}_{antibiotic}_{stem}.tsv")
     md.append("\nHTCondor jobs record peak memory more reliably (`condor_history -af MemoryUsage`); "
               "benchmarks of jobs run in containers have reported 0.\n")
 

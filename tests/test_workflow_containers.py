@@ -65,7 +65,8 @@ EXPECTED_ENVIRONMENTS = {
 
 # Rules with an image but no Conda package, by image reference.
 CONTAINER_ONLY_RULES = {
-    "pangraph_build": "pangraph@sha256:a65d99d6fdf0166f9e2fcfba5327982b7d5c07141953484508a6b5c585ed04b0",
+    "pangraph_subgraph": "pangraph@sha256:a65d99d6fdf0166f9e2fcfba5327982b7d5c07141953484508a6b5c585ed04b0",
+    "pangraph_merge": "pangraph@sha256:a65d99d6fdf0166f9e2fcfba5327982b7d5c07141953484508a6b5c585ed04b0",
 }
 
 
@@ -154,7 +155,7 @@ class WorkflowContainersTest(unittest.TestCase):
 
     def test_general_purpose_container_is_inherited(self):
         with self.workflow() as workflow:
-            self.assertEqual(len(workflow.rules), 75)
+            self.assertEqual(len(workflow.rules), 76)
             for rule in workflow.rules:
                 if not rule.conda_env and rule.name not in CONTAINER_ONLY_RULES:
                     self.assertEqual(

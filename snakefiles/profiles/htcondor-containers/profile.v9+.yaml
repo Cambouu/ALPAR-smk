@@ -235,11 +235,16 @@ set-resources:
     mem_mb: 4000
     htcondor_request_mem_mb: 3815
     container_image: docker.io/cambouu/alpar-smk-python313:1.0.0
-  pangraph_build:
-    # Expected about 126 GB.
-    mem_mb: 256000
-    htcondor_request_mem_mb: 244141
+  pangraph_subgraph:
+    # One group of about 117 genomes (pangraph_groups: 16). One build of all
+    # 1,868 genomes went over 244 GB within 32 minutes (job 68286, 2026-10-26).
+    mem_mb: 64000
+    htcondor_request_mem_mb: 61035
     # alpar-smk-pangraph:1.0.0 (pangraph 1.4.0 and the Snakemake worker), pinned.
+    container_image: docker.io/cambouu/alpar-smk-pangraph@sha256:a65d99d6fdf0166f9e2fcfba5327982b7d5c07141953484508a6b5c585ed04b0
+  pangraph_merge:
+    # mem_mb and htcondor_request_mem_mb grow with the merge's size in
+    # pangraph.smk; setting either here would override that.
     container_image: docker.io/cambouu/alpar-smk-pangraph@sha256:a65d99d6fdf0166f9e2fcfba5327982b7d5c07141953484508a6b5c585ed04b0
   pangraph_features:
     # Expected about 44 GB: the graph JSON is held in memory.

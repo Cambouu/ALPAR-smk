@@ -60,7 +60,9 @@ class PangraphReportTest(unittest.TestCase):
         (baseline / f"{STEM}_Result.txt").write_text(result_text(0.97, 0.95, 217, 2, 5, 90))
         benchmarks = root / "benchmarks"
         benchmarks.mkdir()
-        (benchmarks / "pangraph_build.tsv").write_text("s\th:m:s\tmax_rss\n3600.0\t1:00:00\t2048.0\n")
+        for name, seconds, rss in (("subgraph_0", 3600, 2048), ("subgraph_1", 7200, 1024),
+                                   ("merge_0-1", 1800, 4096), ("merge_0-3", 900, 512), ("merge_2-3", 600, 256)):
+            (benchmarks / f"pangraph_{name}.tsv").write_text(f"s\th:m:s\tmax_rss\n{seconds}.0\t0\t{rss}.0\n")
         out = {"markdown": root / "report.md", "table": root / "report.tsv"}
         report.write_report(
             **files, carriers=str(carriers), samples=str(samples), **out, feature_sets=sets,
@@ -96,8 +98,11 @@ class PangraphReportTest(unittest.TestCase):
         self.assertEqual(table["gpa_pangraph", "drug", "top3_in_loci"], "2")
         self.assertIn("2 with features (**mismatch**)", markdown)
         self.assertIn("gyrA (2,336,793–2,339,420): 1 features; most carried: `pangraph|snp|2339173|G>A` (40)", markdown)
-        self.assertIn("| pangraph_build | 1.00 | 2.0 |", markdown)
-        self.assertIn("| pangraph_features | – | – |", markdown)
+        self.assertIn("| pangraph_subgraph ×2 (longest; total 3.00 h) | 2.00 | 2.0 |", markdown)
+        # Merges in tree order, then extraction (no benchmark here).
+        self.assertIn("| pangraph_merge 0-1 | 0.50 | 4.0 |\n| pangraph_merge 2-3 | 0.17 | 0.2 |\n"
+                      "| pangraph_merge 0-3 | 0.25 | 0.5 |\n| pangraph_features | – | – |", markdown)
+        self.assertEqual(table["pangraph_subgraph", "", "total_wall_s"], "10800.0")
 
     def test_reference_intervals(self):
         self.assertEqual(report.reference_interval("2339166,G:A,snp"), (2339166, 2339166))

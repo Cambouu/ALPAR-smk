@@ -11,12 +11,14 @@ import sys
 import unittest
 
 from snakemake.api import SnakemakeApi
+from snakemake.iocontainers import Wildcards
 from snakemake.settings.types import ConfigSettings, ResourceSettings
 from snakemake.utils import format as format_command
 
 
 REPO = Path(__file__).resolve().parents[1]
 SAMPLE = "0123456789abcdef0123456789abcdef01234567"
+OTHER = "fedcba9876543210fedcba9876543210fedcba98"
 
 
 class PangraphWorkflowTest(unittest.TestCase):
@@ -79,19 +81,57 @@ class PangraphWorkflowTest(unittest.TestCase):
                 rules["combined_ml"].input.phenotype_table,
             )
 
-    def test_pangraph_build_uses_the_pinned_image_and_verifies(self):
+    def test_pangraph_rules_use_the_pinned_image_and_verify(self):
         with self.workflow() as (_, rules):
-            build = rules["pangraph_build"]
-            self.assertIsNone(build.conda_env)
-            self.assertTrue(build.container_img.startswith("docker://docker.io/cambouu/alpar-smk-pangraph@sha256:"))
-            self.assertIn("pangraph build {input:q} -o {output:q} -j {threads} --verify", build.shellcmd)
-            self.assertEqual(build.resources["_cores"], 8)
+            for name, command in (
+                ("pangraph_subgraph", "build {input:q} -o {output:q} -j {threads} --verify"),
+                ("pangraph_merge", "merge {input.left:q} {input.right:q} -o {output:q} -j {threads} --verify"),
+            ):
+                with self.subTest(rule=name):
+                    rule = rules[name]
+                    self.assertIsNone(rule.conda_env)
+                    self.assertTrue(rule.container_img.startswith("docker://docker.io/cambouu/alpar-smk-pangraph@sha256:"))
+                    self.assertIn(command, rule.shellcmd)
+                    self.assertEqual(rule.resources["_cores"], 8)
+
+    def merge_tree(self, rules, path):
+        """(subgraph groups in order, merges) of the graph at `path`, following the merge inputs."""
+        name = Path(path).name.removesuffix(".json.gz")
+        if Path(path).parent.name == "subgraphs":
+            return [int(name)], []
+        lo, hi = name.split("-")
+        wildcards = SimpleNamespace(lo=lo, hi=hi)
+        merge = rules["pangraph_merge"].input
+        left, left_merges = self.merge_tree(rules, merge.left(wildcards))
+        right, right_merges = self.merge_tree(rules, merge.right(wildcards))
+        # Group 0 carries the reference and stays the base (left) of every merge.
+        self.assertEqual(left[0], int(lo))
+        self.assertLessEqual(abs(len(left) - len(right)), 1)
+        return left + right, left_merges + right_merges + [name]
+
+    def test_subgraphs_merge_into_one_graph_as_a_balanced_tree(self):
+        for groups, merges in ((16, 15), (5, 4), (1, 0)):
+            with self.subTest(groups=groups), self.workflow(pangraph_groups=groups) as (_, rules):
+                self.assertEqual(len(rules["pangraph_input"].output.fasta), groups)
+                leaves, merged = self.merge_tree(rules, rules["pangraph_features"].input[0])
+                self.assertEqual(leaves, list(range(groups)))
+                self.assertEqual(len(merged), merges)
+                if groups > 1:
+                    self.assertEqual(merged[-1], f"0-{groups - 1}")
+
+    def test_merge_memory_grows_with_the_merge_tree_level(self):
+        with self.workflow() as (_, rules):
+            memory = rules["pangraph_merge"].resources["mem_mb"]
+            for lo, hi, expected in (("0", "1", 64000), ("4", "7", 128000), ("8", "15", 192000), ("0", "15", 256000)):
+                with self.subTest(merge=f"{lo}-{hi}"):
+                    wildcards = Wildcards(fromdict={"lo": lo, "hi": hi})
+                    self.assertEqual(memory.evaluate(wildcards=wildcards).value, expected)
 
     def test_experiment_rules_write_separately(self):
         with self.workflow() as (root, rules):
             output = root / "output"
             names = {
-                "pangraph_input", "pangraph_build", "pangraph_features", "merge_pangraph_set",
+                "pangraph_input", "pangraph_subgraph", "pangraph_merge", "pangraph_features", "merge_pangraph_set",
                 "pivot_pangraph_set", "combined_ml_pangraph", "pangraph_report",
             }
             for name in names:
@@ -107,13 +147,16 @@ class PangraphWorkflowTest(unittest.TestCase):
         store = root / "store"
         store.mkdir()
         (store / SAMPLE).write_text(">contig_1 len=8\nacgtacgt\n>contig_2\nTTTT\n")
+        (store / OTHER).write_text(">c\nGGGG\n")
         reference = root / "reference"
         reference.write_text(reference_text)
+        (root / "graph_input").mkdir()
         command = format_command(
             rules["pangraph_input"].shellcmd,
-            input=SimpleNamespace(samples=[str(store / SAMPLE)], reference=str(reference)),
-            output=SimpleNamespace(fasta=str(root / "input.fa.gz"), samples=str(root / "samples.txt")),
-            params=SimpleNamespace(ref_name="MG1655"),
+            # Listed out of order: the script sorts the assemblies by name.
+            input=SimpleNamespace(samples=[str(store / OTHER), str(store / SAMPLE)], reference=str(reference)),
+            output=SimpleNamespace(samples=str(root / "samples.txt")),
+            params=SimpleNamespace(ref_name="MG1655", groups=2, input_dir=str(root / "graph_input")),
             log=str(root / "log"),
             PREPARE_PANGRAPH_INPUT=str(REPO / "snakefiles" / "scripts" / "prepare_pangraph_input.py"),
         )
@@ -135,13 +178,18 @@ class PangraphWorkflowTest(unittest.TestCase):
                 "//\n"
             )
             self.assertEqual(self.run_input_rule(root, rules, genbank).returncode, 0)
-            self.assertEqual((root / "samples.txt").read_text().split(), [str(root / "store" / SAMPLE)])
-            with gzip.open(root / "input.fa.gz", "rt") as handle:
-                lines = [line.strip() for line in handle]
-            self.assertEqual(lines, [
+            self.assertEqual(len((root / "samples.txt").read_text().split()), 2)
+
+            def lines(group):
+                with gzip.open(root / "graph_input" / f"{group}.fa.gz", "rt") as handle:
+                    return [line.strip() for line in handle]
+
+            # The reference is only in group 0, before the first assembly by name.
+            self.assertEqual(lines(0), [
                 ">MG1655#1#NC_000913", "AGCTTTTCATTC",
                 f">{SAMPLE}#1#contig_1", "ACGTACGT", f">{SAMPLE}#1#contig_2", "TTTT",
             ])
+            self.assertEqual(lines(1), [f">{OTHER}#1#c", "GGGG"])
 
     def test_input_rule_rejects_a_protein_reference(self):
         with self.workflow() as (root, rules):
