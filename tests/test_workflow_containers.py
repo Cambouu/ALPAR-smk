@@ -71,6 +71,21 @@ EXPECTED_ENVIRONMENTS = {
     "gaf_lor_features_fixed": "python313",
     "pivot_features_fixed": "miller",
     "combined_ml_fixed": "ml",
+    # CD-HIT variant experiment (cdhit_variants.smk).
+    "cdhit_variant": "cd-hit",
+    "merge_cdhit_steps": "python313",
+    "binary_gpa_cdhit_variant": "python313",
+    "split_cluster_fasta_variant": "python313",
+    "cluster_fasta_splits_variant": "python313",
+    "align_clusters_variant": "mafft",
+    "panpa_build_gfa_variant": "panpa-vcf",
+    "bubblegun_runner_variant": "bubblegun",
+    "bubble_features_variant": "python313",
+    "panpa_align_variant": "panpa-vcf",
+    "gaf_lor_features_variant": "python313",
+    "pivot_cdhit_variant_snp_gpa": "miller",
+    "pivot_cdhit_variant_panproteome": "miller",
+    "combined_ml_cdhit_variant": "ml",
 }
 
 
@@ -90,6 +105,17 @@ PANGENOME_SHARD_RULES = {
     "align_clusters_nt", "panpa_build_gfa_nt", "bubblegun_runner_nt",
     "bubble_features_nt", "panpa_align_nt", "gaf_lor_features_nt",
     "bubble_features_fixed", "gaf_lor_features_fixed",
+    "align_clusters_variant", "panpa_build_gfa_variant", "bubblegun_runner_variant",
+    "bubble_features_variant", "panpa_align_variant", "gaf_lor_features_variant",
+}
+
+# Groups that run one job each: combined_ml jobs so each antibiotic gets its own
+# memory, and the CD-HIT variant pivots so SNP + GPA does not wait for the
+# panproteome.
+SINGLE_JOB_GROUPS = {
+    "combined_ml_batch", "combined_ml_nt_batch", "combined_ml_fixed_batch",
+    "combined_ml_cdhit_variant_batch",
+    "pivot_cdhit_variant_snp_gpa_batch", "pivot_cdhit_variant_panproteome_batch",
 }
 
 
@@ -272,14 +298,13 @@ class WorkflowContainersTest(unittest.TestCase):
                 set(profile["group-components"]),
                 set(groups.values()),
             )
-            # combined_ml runs one antibiotic per job so each gets its own memory.
-            self.assertEqual(profile["group-components"]["combined_ml_batch"], 1)
-            self.assertEqual(profile["group-components"]["combined_ml_nt_batch"], 1)
-            self.assertEqual(profile["group-components"]["combined_ml_fixed_batch"], 1)
+            for group in SINGLE_JOB_GROUPS:
+                with self.subTest(group=group):
+                    self.assertEqual(profile["group-components"][group], 1)
             self.assertTrue(all(
                 components == 2000
                 for group, components in profile["group-components"].items()
-                if group not in {"combined_ml_batch", "combined_ml_nt_batch", "combined_ml_fixed_batch"}
+                if group not in SINGLE_JOB_GROUPS
             ))
             for rule in workflow.rules:
                 if rule.name not in wildcard_rules:

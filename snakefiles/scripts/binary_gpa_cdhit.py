@@ -13,6 +13,13 @@ with suppress(ImportError):
 
 from scripts._commons import force_new_file
 
+# One member line of a .clstr file. With -G 0, cd-hit writes the alignment
+# coordinates before the identity ("at 251:6796:552:7097/82.63%").
+CLSTR_MEMBER_REGEX = (
+    r'^\d+\t+\d+aa, >(?P<protein>(?P<strain>[a-f0-9]+)\w+)\.{3} '
+    r'(?:at (?:\d+:\d+:\d+:\d+/)?\d+\.\d+%|(?P<is_ref>\*))$'
+)
+
 
 class SnakemakeHandler(BaseModel):
     """Validator for snakemake io."""
@@ -47,7 +54,7 @@ def binary_gpa_cdhit(handler: SnakemakeHandler) -> None:
     strain2\treference_protein1
     ...
     """
-    pattern = re.compile(r'^\d+\t+\d+aa, >(?P<protein>(?P<strain>[a-f0-9]+)\w+)\.{3} (?:at \d+\.\d+%|(?P<is_ref>\*))$')
+    pattern = re.compile(CLSTR_MEMBER_REGEX)
 
     with (
         handler.clstr_file.open('r', encoding='utf-8') as infile,

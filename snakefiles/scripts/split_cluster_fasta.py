@@ -13,7 +13,9 @@ with suppress(ImportError):
 from scripts._commons import zip_header_and_concat_content, force_new_file
 
 
-PROTEIN_RAW_REGEX = r'^\d+\t+\d+aa, (?P<protein>>\w+)\.{3} (?:\*|at \d+\.\d+%)$'
+# With -G 0, cd-hit writes the alignment coordinates before the identity
+# ("at 251:6796:552:7097/82.63%").
+PROTEIN_RAW_REGEX = r'^\d+\t+\d+aa, (?P<protein>>\w+)\.{3} (?:\*|at (?:\d+:\d+:\d+:\d+/)?\d+\.\d+%)$'
 
 
 class CdhitHandler(BaseModel):

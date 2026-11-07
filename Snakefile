@@ -87,6 +87,9 @@ include: SNAKEFILES_DIR / "pangenome_nt.smk"
 # Experiment: the baseline panproteome with the bubble_features fix (target
 # experiment_panproteome_fixed). Not part of automatix.
 include: SNAKEFILES_DIR / "panproteome_fixed.smk"
+# Experiment: GPA and panproteome from CD-HIT variants that merge more proteins
+# (target experiment_cdhit_variants). Not part of automatix.
+include: SNAKEFILES_DIR / "cdhit_variants.smk"
 
 
 rule automatix:
