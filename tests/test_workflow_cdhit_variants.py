@@ -132,7 +132,11 @@ class CdhitVariantWorkflowTest(unittest.TestCase):
     def test_variant_rules_write_separately(self):
         with self.workflow() as (root, rules):
             output = root / "output"
-            names = [n for n in rules if n.endswith("_variant") or "cdhit_variant" in n or n == "merge_cdhit_steps"]
+            names = [
+                n for n in rules
+                if (n.endswith("_variant") or "cdhit_variant" in n or n == "merge_cdhit_steps")
+                and n != "experiment_cdhit_variants"  # its flag goes to flags/
+            ]
             self.assertIn("combined_ml_cdhit_variant", names)
             for name in names:
                 with self.subTest(rule=name):

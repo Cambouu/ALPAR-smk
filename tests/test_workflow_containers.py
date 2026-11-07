@@ -146,7 +146,7 @@ class WorkflowContainersTest(unittest.TestCase):
             rules = {rule.name: rule for rule in workflow.rules}
             env_rules = {name for name, rule in rules.items() if rule.conda_env}
             self.assertEqual(env_rules, set(EXPECTED_ENVIRONMENTS))
-            self.assertEqual(len(env_rules), 54)
+            self.assertEqual(len(env_rules), 68)  # 54 + 14 in cdhit_variants.smk
             for name, key in EXPECTED_ENVIRONMENTS.items():
                 with self.subTest(rule=name):
                     self.assertEqual(
@@ -180,7 +180,7 @@ class WorkflowContainersTest(unittest.TestCase):
 
     def test_general_purpose_container_is_inherited(self):
         with self.workflow() as workflow:
-            self.assertEqual(len(workflow.rules), 91)
+            self.assertEqual(len(workflow.rules), 111)  # 91 + 20 in cdhit_variants.smk
             for rule in workflow.rules:
                 if not rule.conda_env:
                     self.assertEqual(
