@@ -51,6 +51,8 @@ rule combined_ml:
         save_model = True,
         # Grid points trained at once; results are identical to one fit at a time.
         parallel_fits = lookup(dpath="ml_parallel_fits", within=config, default=1),
+        # Train each grid point as a full classifier (see config.yaml).
+        param_grid_low_memory_mode = lookup(dpath="ml_param_grid_low_memory_mode", within=config, default=True),
     conda: ENVS_DIR.format("ml")
     container: CONTAINERS.format("ml:1.0.0")
     threads: lambda wildcards: workflow.cores // len(ANTIBIOTICS)

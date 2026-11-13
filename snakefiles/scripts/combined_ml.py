@@ -68,7 +68,10 @@ class SnakemakeHandler(BaseModel):
     feature_importance_analysis_strategy: Literal["gini", "permutation_importance", "absolute_feature_weights"] = "gini"
     important_feature_limit: PositiveInt = 20
     param_grid_size: Literal["small", "medium", "large"] = "small"
-    param_grid_low_memory_mode: bool = False
+    # Low-memory mode trains every grid point as a classifier. The GridSearchCV
+    # branch refits XGBoost with xgb.train, which drops the binary objective
+    # (regression) and uses n_estimators (100) rounds.
+    param_grid_low_memory_mode: bool = True
     device: Literal["cpu", "gpu", "cuda"] = "cpu"
     parameter_search_strategy: Literal["grid_search", "random_search"] = "grid_search"
     parameter_search_n_iter: PositiveInt = 20
@@ -1057,6 +1060,7 @@ if __name__ == "__main__":
         feature_importance_analysis=snakemake.params['feature_importance_analysis'],
         save_model=snakemake.params['save_model'],
         parallel_fits=snakemake.params.get('parallel_fits', 1),
+        param_grid_low_memory_mode=snakemake.params.get('param_grid_low_memory_mode', True),
     )
     logger.remove()
     logger.add(handler.log_file, backtrace=True, diagnose=True, enqueue=True)

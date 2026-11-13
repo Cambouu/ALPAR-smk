@@ -30,6 +30,11 @@ ml_mem_mb: 256000
 # fits on 744k-feature SNP tables peaked near 210 GB; the 1.12M-feature
 # baseline table needs more per fit, so 2 stays within the 256 GB request.
 ml_parallel_fits: 2
+# Grid search one point at a time, each point trained as a full classifier and
+# the best chosen by MCC on the test split. False uses GridSearchCV (CV on the
+# training split), but for XGBoost it then refits with xgb.train, which loses
+# the binary objective and trains 100 rounds (bug inherited from upstream ALPAR).
+ml_param_grid_low_memory_mode: True
 mock: False
 
 datasail_delta: 0.2
