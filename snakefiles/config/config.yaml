@@ -40,5 +40,5 @@ ml_param_grid_low_memory_mode: True
 ml_important_feature_limit: -1
 mock: False
 
-datasail_delta: 0.2
+datasail_delta: 0.1
 datasail_epsilon: 0.2

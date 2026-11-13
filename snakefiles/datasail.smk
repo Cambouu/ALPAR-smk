@@ -80,7 +80,7 @@ rule datasail_runner:
         e_type = "P",
         max_sec = 600,
         verbose = "D",
-        delta = config.get("datasail_delta", 0.2),
+        delta = config.get("datasail_delta", 0.1),
         epsilon = config.get("datasail_epsilon", 0.2),
         runs = 1,
         solver = "SCIP",
