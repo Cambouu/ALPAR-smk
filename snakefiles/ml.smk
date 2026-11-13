@@ -53,6 +53,7 @@ rule combined_ml:
         parallel_fits = lookup(dpath="ml_parallel_fits", within=config, default=1),
         # Train each grid point as a full classifier (see config.yaml).
         param_grid_low_memory_mode = lookup(dpath="ml_param_grid_low_memory_mode", within=config, default=True),
+        important_feature_limit = lookup(dpath="ml_important_feature_limit", within=config, default=-1),
     conda: ENVS_DIR.format("ml")
     container: CONTAINERS.format("ml:1.0.0")
     threads: lambda wildcards: workflow.cores // len(ANTIBIOTICS)

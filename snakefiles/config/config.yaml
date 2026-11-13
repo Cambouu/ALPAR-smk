@@ -35,6 +35,9 @@ ml_parallel_fits: 2
 # training split), but for XGBoost it then refits with xgb.train, which loses
 # the binary objective and trains 100 rounds (bug inherited from upstream ALPAR).
 ml_param_grid_low_memory_mode: True
+# Features written to the feature-importance file; -1 = all with importance > 0
+# (upstream's --important_feature_limit -1).
+ml_important_feature_limit: -1
 mock: False
 
 datasail_delta: 0.2

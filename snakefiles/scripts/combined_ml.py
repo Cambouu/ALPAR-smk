@@ -66,7 +66,8 @@ class SnakemakeHandler(BaseModel):
     validation: list[str] = Field(default_factory=list)
     stratify: bool = True
     feature_importance_analysis_strategy: Literal["gini", "permutation_importance", "absolute_feature_weights"] = "gini"
-    important_feature_limit: PositiveInt = 20
+    # Features written to the FIA file; -1 writes every feature with importance > 0.
+    important_feature_limit: Annotated[int, Field(ge=-1)] = -1
     param_grid_size: Literal["small", "medium", "large"] = "small"
     # Low-memory mode trains every grid point as a classifier. The GridSearchCV
     # branch refits XGBoost with xgb.train, which drops the binary objective
@@ -1061,6 +1062,7 @@ if __name__ == "__main__":
         save_model=snakemake.params['save_model'],
         parallel_fits=snakemake.params.get('parallel_fits', 1),
         param_grid_low_memory_mode=snakemake.params.get('param_grid_low_memory_mode', True),
+        important_feature_limit=snakemake.params.get('important_feature_limit', -1),
     )
     logger.remove()
     logger.add(handler.log_file, backtrace=True, diagnose=True, enqueue=True)
