@@ -68,9 +68,11 @@ class MinigraphCactusWorkflowTest(unittest.TestCase):
             self.assertEqual(build.resources["htcondor_request_mem_mb"], 512000 * 1000 * 1000 // 1024 ** 2)
             self.assertEqual(build.params.extra, "--noSplit")
             for text in ("--vcf clip full", "--reference {params.ref_name:q}", 'minGAFBlockLength="0"',
-                         "--maxCores {threads}", "/usr/local/cactus/bin"):
+                         "--maxCores {threads}", "{MC_ENV}"):
                 self.assertIn(text, build.shellcmd)
-            self.assertIn("/usr/local/cactus/bin", rules["mc_features"].shellcmd)
+            self.assertIn("{MC_ENV}", rules["mc_features"].shellcmd)
+            # MC_ENV is filled in from the module's globals when the job runs.
+            self.assertIn("/usr/local/cactus/bin", build.workflow.globals["MC_ENV"])
 
     def test_ml_matches_the_pangraph_experiment(self):
         with self.workflow() as (_, rules):
