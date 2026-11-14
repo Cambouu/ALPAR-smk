@@ -55,7 +55,7 @@ class MinigraphCactusWorkflowTest(unittest.TestCase):
             self.assertIn("snp_mc", rules["mc_report"].params.feature_sets)
             self.assertEqual(rules["mc_report"].params.vcf, "clip")
         with self.workflow() as (_, rules):
-            self.assertEqual(Path(rules["mc_features"].input.vcf).name, "mc.full.vcf.gz")
+            self.assertEqual(Path(rules["mc_features"].input.vcf).name, "mc.wave.vcf.gz")
 
     def test_build_is_one_large_job_on_the_pinned_image(self):
         with self.workflow() as (_, rules):
@@ -63,11 +63,11 @@ class MinigraphCactusWorkflowTest(unittest.TestCase):
             self.assertIsNone(build.conda_env)
             self.assertTrue(build.container_img.startswith(
                 "docker://docker.io/cambouu/alpar-smk-minigraph-cactus@sha256:"))
-            self.assertEqual(build.resources["_cores"], 64)
+            self.assertEqual(build.resources["_cores"], 128)
             self.assertEqual(build.resources["mem_mb"], 512000)
             self.assertEqual(build.resources["htcondor_request_mem_mb"], 512000 * 1000 * 1000 // 1024 ** 2)
             self.assertEqual(build.params.extra, "--noSplit")
-            for text in ("--vcf clip full", "--reference {params.ref_name:q}", 'minGAFBlockLength="0"',
+            for text in ("--vcf clip --vcfwave --gbz clip ", "--reference {params.ref_name:q}", 'minGAFBlockLength="0"',
                          "--maxCores {threads}", "{MC_ENV}"):
                 self.assertIn(text, build.shellcmd)
             self.assertIn("{MC_ENV}", rules["mc_features"].shellcmd)

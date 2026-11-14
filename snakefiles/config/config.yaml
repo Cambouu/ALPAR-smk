@@ -59,11 +59,14 @@ mc_ref_name: "MG1655"
 # instead of splitting the assemblies by reference chromosome, which drops
 # plasmids and draft contigs that fail the chromosome-assignment filters.
 mc_extra_args: "--noSplit"
-# Deconstruct VCF used for the features: full (no clipping) or clip (cactus'
-# default); full.wave / wave are the vcfwave-realigned versions.
-mc_vcf: full
-# One cactus-pangenome job; keep mc_build_mem_mb within the profile's pool.
-mc_build_threads: 64
+# Deconstruct VCF of the clipped graph used for the features: wave (realigned
+# by vcfwave) or clip. The 20-strain pilot recalled the most snippy SNPs with
+# wave (97.5%, vs 95.9% for clip and 94.7% for the unclipped graph).
+mc_vcf: wave
+# One cactus-pangenome job; keep mc_build_mem_mb within the profile's pool. The
+# profile's cores: 32 caps the threads: launch with --cores 128. 300 genomes took
+# 5.6 h on 64 cores with a 75 GB peak.
+mc_build_threads: 128
 mc_build_mem_mb: 512000
 # Feature sets trained: name -> merged families (snp, gpa, pangraph, mc). The
 # SNP + GPA and GPA + PanGraph results of experiment/pangraph are reported as

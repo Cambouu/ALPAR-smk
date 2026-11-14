@@ -271,7 +271,11 @@ set-resources:
     container_image: docker.io/cambouu/alpar-smk-python313:1.0.0
   mc_build:
     # mem_mb and htcondor_request_mem_mb come from config mc_build_mem_mb in
-    # minigraph_cactus.smk; setting either here would override that.
+    # minigraph_cactus.smk; setting either here would override that. Its
+    # threads (config mc_build_threads) are capped by cores: 32 above, so the
+    # experiment is launched with --cores 128. The Toil job store and work files
+    # use the node-local disk (4.2 GB of outputs at 300 genomes).
+    request_disk: 256GB
     container_image: docker.io/cambouu/alpar-smk-minigraph-cactus@sha256:2116d2cf79c781c89040ca403356d04e1385fcd4e8f84f7c8342477b563560aa
   mc_features:
     mem_mb: 32000

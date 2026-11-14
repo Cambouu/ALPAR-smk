@@ -49,15 +49,18 @@ MC_ML_SETTINGS = dict(
 )
 
 # Keep in sync with the profile's mc_build entry.
-MC_BUILD_THREADS = int(config.get("mc_build_threads", 64))
+MC_BUILD_THREADS = int(config.get("mc_build_threads", 128))
 MC_BUILD_MEM_MB = int(config.get("mc_build_mem_mb", 512000))
-# Which deconstruct VCF becomes the features: "full" (no clipping) or "clip" (cactus default),
-# optionally with the vcfwave-realigned version ("full.wave", "wave" for clip).
-MC_VCF = config.get("mc_vcf", "full")
+# Which deconstruct VCF of the clipped graph becomes the features: "wave" (realigned by vcfwave)
+# or "clip" (vg deconstruct as is). Only the clipped graph is exported: the unclipped ("full")
+# graph and its VCFs roughly doubled the indexing, deconstruct and vcfwave time in the pilots.
+MC_VCF = config.get("mc_vcf", "wave")
+if MC_VCF not in ("clip", "wave"):
+    raise ValueError(f"mc_vcf must be clip or wave, not {MC_VCF!r}")
 
 
 def mc_vcf_path(kind):
-    stem = {"clip": "mc", "wave": "mc.wave"}.get(kind, f"mc.{kind}")
+    stem = {"clip": "mc", "wave": "mc.wave"}[kind]
     return MC_OUT_DIR / "graph" / f"{stem}.vcf.gz"
 
 
@@ -102,12 +105,10 @@ rule mc_build:
         seqfile = rules.mc_input.output.seqfile,
         reference = rules.mc_input.output.reference,
     output:
-        full = mc_vcf_path("full"),
         clip = mc_vcf_path("clip"),
-        full_wave = mc_vcf_path("full.wave"),
-        clip_wave = mc_vcf_path("wave"),
-        gbz = MC_OUT_DIR / "graph" / "mc.full.gbz",
-        pathlen = MC_OUT_DIR / "graph" / "pathlen.full.tsv",
+        wave = mc_vcf_path("wave"),
+        gbz = MC_OUT_DIR / "graph" / "mc.gbz",
+        pathlen = MC_OUT_DIR / "graph" / "pathlen.tsv",
     log: MC_LOGS_DIR / "mc_build.log"
     benchmark: BENCHMARKS_DIR / "mc_build.tsv"
     params:
@@ -135,7 +136,7 @@ rule mc_build:
         rm -rf "$TMPDIR/js"
         cactus-pangenome "$TMPDIR/js" {input.seqfile:q} --outDir {params.out_dir:q} --outName mc \
             --reference {params.ref_name:q} --configFile "$TMPDIR/config.xml" \
-            --vcf clip full --vcfwave --gbz clip full --gfa clip full {params.extra} \
+            --vcf clip --vcfwave --gbz clip {params.extra} \
             --maxCores {threads} --maxMemory {params.max_mem} --workDir "$TMPDIR" > {log:q} 2>&1
         vg paths -E -x {output.gbz:q} > {output.pathlen:q} 2>> {log:q}
         """

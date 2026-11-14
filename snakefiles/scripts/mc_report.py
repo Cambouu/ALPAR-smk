@@ -158,7 +158,7 @@ def sequence_kept(seqfile, pathlen, ref_name):
 
 
 def write_report(results, best_params, fia, pivots, features, samples, pathlen, seqfile, markdown, table,
-                 feature_sets, vcf="full", features_log=None, reference_ml_dirs=None, benchmarks_dir=None,
+                 feature_sets, vcf="wave", features_log=None, reference_ml_dirs=None, benchmarks_dir=None,
                  loci=None, top_features=20, ref_name="MG1655"):
     loci = {name: tuple(bounds) for name, bounds in (loci or {}).items()}
     set_names = list(feature_sets)
@@ -256,10 +256,10 @@ def write_report(results, best_params, fia, pivots, features, samples, pathlen, 
     fractions = sequence_kept(seqfile, pathlen, ref_name)
     if fractions:
         values = sorted(fractions.values())
-        md.append(f"- Sequence kept in the full graph per genome: median {statistics.median(values):.1%}, "
+        md.append(f"- Sequence kept in the graph per genome: median {statistics.median(values):.1%}, "
                   f"range {values[0]:.1%}–{values[-1]:.1%}; {sum(v < 0.8 for v in values)} genomes below 80%.")
-        tsv += [("mc", "", "kept_full_median", statistics.median(values)), ("mc", "", "kept_full_min", values[0]),
-                ("mc", "", "kept_full_max", values[-1])]
+        tsv += [("mc", "", "kept_median", statistics.median(values)), ("mc", "", "kept_min", values[0]),
+                ("mc", "", "kept_max", values[-1])]
     md.append("")
 
     md.append(f"## Top {top_features} features\n")
