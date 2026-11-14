@@ -84,6 +84,9 @@ include: SNAKEFILES_DIR / "ml.smk"
 # Experiment: PanGraph features from the assemblies, compared with snippy's SNPs
 # (target experiment_pangraph). Not part of automatix.
 include: SNAKEFILES_DIR / "pangraph.smk"
+# Experiment: Minigraph-Cactus graph + vg deconstruct VCF features, in place of snippy's SNPs
+# (target experiment_minigraph_cactus). Not part of automatix.
+include: SNAKEFILES_DIR / "minigraph_cactus.smk"
 
 
 rule automatix:

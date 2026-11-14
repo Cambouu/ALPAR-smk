@@ -51,5 +51,25 @@ pangraph_reference_set: snp_gpa
 # XGBoost grid for the experiment: small has 36 combinations (combined_ml.py).
 ml_param_grid_size: small
 
+# Minigraph-Cactus experiment (snakefiles/minigraph_cactus.smk, target
+# experiment_minigraph_cactus). One graph of every strain plus the reference;
+# vg deconstruct writes the VCF on the reference path.
+mc_ref_name: "MG1655"
+# Extra cactus-pangenome arguments. --noSplit builds one whole-genome graph
+# instead of splitting the assemblies by reference chromosome, which drops
+# plasmids and draft contigs that fail the chromosome-assignment filters.
+mc_extra_args: "--noSplit"
+# Deconstruct VCF used for the features: full (no clipping) or clip (cactus'
+# default); full.wave / wave are the vcfwave-realigned versions.
+mc_vcf: full
+# One cactus-pangenome job; keep mc_build_mem_mb within the profile's pool.
+mc_build_threads: 64
+mc_build_mem_mb: 512000
+# Feature sets trained: name -> merged families (snp, gpa, pangraph, mc). The
+# SNP + GPA and GPA + PanGraph results of experiment/pangraph are reported as
+# reference rows (same split), not retrained.
+mc_feature_sets:
+  gpa_mc: [gpa, mc]
+
 datasail_delta: 0.2
 datasail_epsilon: 0.2

@@ -38,6 +38,9 @@ group-components:
   # SNP + GPA pivot waited for the PanGraph features (run 68264, 2026-10-25).
   pivot_pangraph_set_batch: 1
   combined_ml_pangraph_batch: 1
+  # Minigraph-Cactus experiment (minigraph_cactus.smk), as for PanGraph.
+  pivot_mc_set_batch: 1
+  combined_ml_mc_batch: 1
 
 # Global pool: total memory of all concurrently running jobs (20 jobs x 32 GB).
 # Group jobs stay near 32 GB because cores: 32 limits how many members run at once.
@@ -259,6 +262,29 @@ set-resources:
   pangraph_report:
     mem_mb: 8000
     htcondor_request_mem_mb: 7630
+    container_image: docker.io/cambouu/alpar-smk-python313:1.0.0
+  # Minigraph-Cactus experiment (minigraph_cactus.smk). alpar-smk-minigraph-cactus:1.0.0
+  # is cactus v3.3.0 relocated to /usr/local/cactus plus the Snakemake worker, pinned.
+  mc_input:
+    mem_mb: 4000
+    htcondor_request_mem_mb: 3815
+    container_image: docker.io/cambouu/alpar-smk-python313:1.0.0
+  mc_build:
+    # mem_mb and htcondor_request_mem_mb come from config mc_build_mem_mb in
+    # minigraph_cactus.smk; setting either here would override that.
+    container_image: docker.io/cambouu/alpar-smk-minigraph-cactus@sha256:2116d2cf79c781c89040ca403356d04e1385fcd4e8f84f7c8342477b563560aa
+  mc_features:
+    mem_mb: 32000
+    htcondor_request_mem_mb: 30518
+    container_image: docker.io/cambouu/alpar-smk-minigraph-cactus@sha256:2116d2cf79c781c89040ca403356d04e1385fcd4e8f84f7c8342477b563560aa
+  pivot_mc_set:
+    container_image: docker.io/cambouu/alpar-smk-miller:1.0.0
+  combined_ml_mc:
+    # Inherits combined_ml's rule-level memory; see combined_ml above.
+    container_image: docker.io/cambouu/alpar-smk-ml:1.0.0
+  mc_report:
+    mem_mb: 16000
+    htcondor_request_mem_mb: 15259
     container_image: docker.io/cambouu/alpar-smk-python313:1.0.0
 
 set-threads:

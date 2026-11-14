@@ -61,12 +61,21 @@ EXPECTED_ENVIRONMENTS = {
     "pivot_pangraph_set": "miller",
     "combined_ml_pangraph": "ml",
     "pangraph_report": "python313",
+    # Minigraph-Cactus experiment (minigraph_cactus.smk).
+    "mc_input": "python313",
+    "pivot_mc_set": "miller",
+    "combined_ml_mc": "ml",
+    "mc_report": "python313",
 }
+
+MC_IMAGE = "minigraph-cactus@sha256:2116d2cf79c781c89040ca403356d04e1385fcd4e8f84f7c8342477b563560aa"
 
 # Rules with an image but no Conda package, by image reference.
 CONTAINER_ONLY_RULES = {
     "pangraph_subgraph": "pangraph@sha256:a65d99d6fdf0166f9e2fcfba5327982b7d5c07141953484508a6b5c585ed04b0",
     "pangraph_merge": "pangraph@sha256:a65d99d6fdf0166f9e2fcfba5327982b7d5c07141953484508a6b5c585ed04b0",
+    "mc_build": MC_IMAGE,
+    "mc_features": MC_IMAGE,
 }
 
 
@@ -121,7 +130,7 @@ class WorkflowContainersTest(unittest.TestCase):
             rules = {rule.name: rule for rule in workflow.rules}
             env_rules = {name for name, rule in rules.items() if rule.conda_env}
             self.assertEqual(env_rules, set(EXPECTED_ENVIRONMENTS))
-            self.assertEqual(len(env_rules), 45)
+            self.assertEqual(len(env_rules), 49)
             for name, key in EXPECTED_ENVIRONMENTS.items():
                 with self.subTest(rule=name):
                     self.assertEqual(
@@ -155,7 +164,7 @@ class WorkflowContainersTest(unittest.TestCase):
 
     def test_general_purpose_container_is_inherited(self):
         with self.workflow() as workflow:
-            self.assertEqual(len(workflow.rules), 76)
+            self.assertEqual(len(workflow.rules), 85)
             for rule in workflow.rules:
                 if not rule.conda_env and rule.name not in CONTAINER_ONLY_RULES:
                     self.assertEqual(
@@ -274,7 +283,8 @@ class WorkflowContainersTest(unittest.TestCase):
             )
             # combined_ml runs one antibiotic per job so each gets its own memory;
             # each PanGraph experiment pivot runs alone so one set cannot block another.
-            single = {"combined_ml_batch", "combined_ml_pangraph_batch", "pivot_pangraph_set_batch"}
+            single = {"combined_ml_batch", "combined_ml_pangraph_batch", "pivot_pangraph_set_batch",
+                      "combined_ml_mc_batch", "pivot_mc_set_batch"}
             for group in single:
                 self.assertEqual(profile["group-components"][group], 1)
             self.assertTrue(all(
